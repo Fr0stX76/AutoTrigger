@@ -17,6 +17,7 @@ Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory
   - **Press hotkey**: a shortcut of another program, such as an RTSS overlay.
   - **Reference profile**: reuses the actions of another profile.
 - Shared profiles, a monitoring switch per application and a global pause.
+- Light and dark themes, following Windows by default.
 - Import from AutoActions.
 - About 0.06 % of one CPU core while idle. No administrator rights, no network access.
 
