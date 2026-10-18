@@ -4,8 +4,6 @@ A Windows tray app that runs actions when an application starts, closes, gains o
 
 Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory. Independent rewrite, not affiliated with Codectory or NVIDIA.
 
-<img src="images/status.png" alt="Status">
-
 ## Features
 
 - Four events per application: Started, Closed, Gained focus, Lost focus.
@@ -20,6 +18,8 @@ Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory
 - Light and dark themes, following Windows by default.
 - Import from AutoActions.
 - About 0.06 % of one CPU core while idle. No administrator rights, no network access.
+
+<img src="images/status.png" alt="Status">
 
 <img src="images/applications.png" alt="Applications">
 
