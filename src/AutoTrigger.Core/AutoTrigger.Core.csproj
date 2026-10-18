@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>AutoTrigger.Core</AssemblyName>
+    <RootNamespace>AutoTrigger.Core</RootNamespace>
+    <AssemblyTitle>AutoTrigger engine</AssemblyTitle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AutoTrigger" />
+  </ItemGroup>
+
+</Project>

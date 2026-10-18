@@ -1,0 +1,67 @@
+﻿AutoTrigger 1.0
+Copyright © 2026 Fr0stX76
+Licensed under the MIT License. See LICENSE.
+
+NOT AFFILIATED WITH NVIDIA
+
+AutoTrigger is an independent project. It is not developed, sponsored,
+endorsed or supported by NVIDIA Corporation.
+
+NVIDIA is a trademark or registered trademark of NVIDIA Corporation. It is
+mentioned only to identify the technology used.
+
+ICON
+
+The icon is original artwork made for this project.
+
+THIRD-PARTY COMPONENTS: WPF UI
+
+This project uses the WPF UI library (WPF-UI 4.3.0 and
+WPF-UI.Abstractions), included with AutoTrigger as separate DLL files.
+The MIT license below applies to these components.
+
+Copyright (c) 2021-2025 Leszek Pomianowski and WPF UI Contributors.
+
+Official project: https://github.com/lepoco/wpfui
+
+THIRD-PARTY COMPONENTS: .NET LIBRARIES
+
+WPF UI uses the System.Memory, System.Buffers, System.Numerics.Vectors and
+System.Runtime.CompilerServices.Unsafe packages, included with AutoTrigger
+as separate DLL files. The MIT license below applies to these packages.
+
+Copyright (c) .NET Foundation and Contributors.
+
+THIRD-PARTY COMPONENTS: NVIDIA NVAPI
+
+This project uses function identifiers and structure layouts from the
+NVAPI SDK header files to call nvapi64.dll. That DLL comes with the NVIDIA
+driver and is not included with AutoTrigger. The MIT license below applies
+to these NVAPI definitions.
+
+NVAPI header files:
+Copyright (c) 2019-2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+Official project: https://github.com/NVIDIA/nvapi
+Library license: https://github.com/NVIDIA/nvapi/blob/main/License.txt
+
+MIT LICENSE
+SPDX-License-Identifier: MIT
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
