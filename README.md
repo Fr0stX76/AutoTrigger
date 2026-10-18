@@ -21,11 +21,11 @@ Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory
 - Import from AutoActions.
 - About 0.06 % of one CPU core while idle. No administrator rights, no network access.
 
+<img src="images/applications.png" alt="Applications">
+
 <img src="images/profiles.png" alt="Profiles">
 
 <img src="images/display-action.png" width="640" alt="Display action">
-
-<img src="images/applications.png" alt="Applications">
 
 <img src="images/displays.png" alt="Displays">
 
