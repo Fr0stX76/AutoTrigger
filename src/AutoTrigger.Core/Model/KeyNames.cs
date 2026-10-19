@@ -38,9 +38,13 @@ namespace AutoTrigger.Core.Model
             0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x2C, 0x2D, 0x2E, 0x6F,
         };
 
-        public static string Combination(PressHotkeyAction keys, Func<int, string> layoutName = null)
+        public static Func<int, string> LayoutName { get; set; }
+
+        public static string Readable(KeyCombination keys) => Combination(keys, LayoutName);
+
+        public static string Combination(KeyCombination keys, Func<int, string> layoutName = null)
         {
-            if (keys == null || keys.Key == 0)
+            if (keys == null || !keys.IsSet)
                 return string.Empty;
             var parts = new List<string>();
             if (keys.Ctrl)
@@ -71,6 +75,11 @@ namespace AutoTrigger.Core.Model
             IsDigit(key) || IsLetter(key) || IsNumpadDigit(key) || IsFunctionKey(key) || Named.ContainsKey(key) || IsPunctuation(key);
 
         public static bool IsExtended(int key) => Extended.Contains(key);
+
+        public static bool CanBeShortcut(KeyCombination keys) =>
+            keys != null && keys.IsSet && CanSend(keys.Key) && (keys.Ctrl || keys.Alt || IsSpareFunctionKey(keys.Key));
+
+        private static bool IsSpareFunctionKey(int key) => key >= 0x7C && key <= 0x87;
 
         private static bool IsDigit(int key) => key >= 0x30 && key <= 0x39;
 

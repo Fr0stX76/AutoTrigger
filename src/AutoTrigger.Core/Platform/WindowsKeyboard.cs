@@ -15,8 +15,29 @@ namespace AutoTrigger.Core.Platform
         private const int LeftShift = 0xA0;
         private const int LeftCtrl = 0xA2;
         private const int LeftAlt = 0xA4;
+        private const int SentEchoMs = 500;
+        private const int HeldKeysPollMs = 10;
+
+        private static readonly int[] HeldModifiers = { 0x10, 0x11, 0x12, 0x5B, 0x5C };
 
         private readonly Lazy<bool> _selfAsAdmin = new Lazy<bool>(SelfRunsAsAdmin);
+        private readonly object _sentLock = new object();
+        private KeyCombination _sending;
+        private readonly Stopwatch _clock = Stopwatch.StartNew();
+        private KeyCombination _lastSent;
+        private long _lastSentAt;
+
+        public bool IsOwnEcho(KeyCombination keys)
+        {
+            lock (_sentLock)
+            {
+                if (keys == null)
+                    return false;
+                if (keys.Equals(_sending))
+                    return true;
+                return keys.Equals(_lastSent) && _clock.ElapsedMilliseconds - _lastSentAt < SentEchoMs;
+            }
+        }
 
         public bool FrontWindowRunsAsAdmin()
         {
@@ -25,12 +46,36 @@ namespace AutoTrigger.Core.Platform
             IntPtr window = NativeMethods.GetForegroundWindow();
             if (window == IntPtr.Zero)
                 return false;
-            NativeMethods.GetWindowThreadProcessId(window, out int pid);
+            _ = NativeMethods.GetWindowThreadProcessId(window, out int pid);
             return pid != 0 && RunsAsAdmin(pid);
         }
 
-        public void Press(PressHotkeyAction keys, int holdMs)
+        public bool WaitForHeldKeys(int timeoutMs)
         {
+            var waited = Stopwatch.StartNew();
+            while (AnyModifierDown())
+            {
+                if (waited.ElapsedMilliseconds >= timeoutMs)
+                    return false;
+                Thread.Sleep(HeldKeysPollMs);
+            }
+            return true;
+        }
+
+        private static bool AnyModifierDown()
+        {
+            foreach (int key in HeldModifiers)
+            {
+                if ((Native.GetAsyncKeyState(key) & 0x8000) != 0)
+                    return true;
+            }
+            return false;
+        }
+
+        public void Press(KeyCombination keys, int holdMs)
+        {
+            lock (_sentLock)
+                _sending = keys.Copy();
             List<int> modifiers = Modifiers(keys);
             var pressed = new Stack<int>();
             try
@@ -45,10 +90,37 @@ namespace AutoTrigger.Core.Platform
             finally
             {
                 Release(pressed, keys.Key);
+                lock (_sentLock)
+                {
+                    _lastSent = _sending;
+                    _lastSentAt = _clock.ElapsedMilliseconds;
+                    _sending = null;
+                }
             }
         }
 
-        private static List<int> Modifiers(PressHotkeyAction keys)
+        public static bool TypesCharacterWithAltGr(KeyCombination keys)
+        {
+            if (keys == null || !keys.Ctrl || !keys.Alt)
+                return false;
+            var state = new byte[256];
+            state[0x11] = 0x80;
+            state[0x12] = 0x80;
+            state[LeftCtrl] = 0x80;
+            state[0xA5] = 0x80;
+            if (keys.Shift)
+            {
+                state[0x10] = 0x80;
+                state[LeftShift] = 0x80;
+            }
+            var text = new char[8];
+            uint scan = Native.MapVirtualKey((uint)keys.Key, Native.MAPVK_VK_TO_VSC);
+            int result = Native.ToUnicodeEx((uint)keys.Key, scan, state, text, text.Length, Native.ToUnicodeNoStateChange,
+                Native.GetKeyboardLayout(0));
+            return result != 0;
+        }
+
+        private static List<int> Modifiers(KeyCombination keys)
         {
             var modifiers = new List<int>();
             if (keys.Ctrl)
@@ -96,7 +168,7 @@ namespace AutoTrigger.Core.Platform
                     },
                 },
             };
-            return Native.SendInput(1, new[] { input }, Marshal.SizeOf(typeof(Native.INPUT))) == 1;
+            return Native.SendInput(1, new[] { input }, Marshal.SizeOf<Native.INPUT>()) == 1;
         }
 
         public static string LayoutName(int key)
@@ -134,6 +206,7 @@ namespace AutoTrigger.Core.Platform
             public const uint MAPVK_VK_TO_CHAR = 2;
             public const uint TOKEN_QUERY = 0x0008;
             public const int TokenElevation = 20;
+            public const uint ToUnicodeNoStateChange = 4;
 
             [StructLayout(LayoutKind.Sequential)]
             public struct INPUT
@@ -178,6 +251,16 @@ namespace AutoTrigger.Core.Platform
 
             [DllImport("user32.dll", EntryPoint = "MapVirtualKeyW")]
             public static extern uint MapVirtualKey(uint code, uint mapType);
+
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+            public static extern int ToUnicodeEx(uint virtualKey, uint scanCode, byte[] keyState,
+                [Out] char[] buffer, int bufferSize, uint flags, IntPtr layout);
+
+            [DllImport("user32.dll")]
+            public static extern IntPtr GetKeyboardLayout(uint threadId);
+
+            [DllImport("user32.dll")]
+            public static extern short GetAsyncKeyState(int virtualKey);
 
             [DllImport("advapi32.dll", SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]

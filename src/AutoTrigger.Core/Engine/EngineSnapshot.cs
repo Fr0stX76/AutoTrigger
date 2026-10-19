@@ -27,7 +27,7 @@ namespace AutoTrigger.Core.Engine
 
     public sealed class EngineSnapshot
     {
-        public static readonly EngineSnapshot Empty = new EngineSnapshot(false, false, new AppStatus[0], Guid.Empty, null, Guid.Empty, null);
+        public static readonly EngineSnapshot Empty = new EngineSnapshot(false, false, Array.Empty<AppStatus>(), Guid.Empty, null, Guid.Empty, null);
 
         public EngineSnapshot(bool monitoring, bool paused, IReadOnlyList<AppStatus> apps, Guid currentAppId,
             string currentAppName, Guid currentProfileId, string currentProfileName)

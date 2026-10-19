@@ -22,7 +22,7 @@ using Wpf.Ui.Markup;
 
 namespace AutoTrigger
 {
-    internal sealed class App : Application
+    internal sealed partial class App : Application
     {
         private readonly SingleInstance _instance;
         private SettingsStore _store;
@@ -32,6 +32,11 @@ namespace AutoTrigger
         private WindowsProcessSystem _processes;
         private WindowsAudioHardware _audio;
         private WindowsPowerPlans _powerPlans;
+        private WindowsKeyboard _keyboard;
+        private WindowsScreenSaver _screenSaver;
+        private HotkeyService _hotkeys;
+        private CommandServer _commands;
+        private readonly Command _startCommand;
         private ActionExecutor _executor;
         private EngineLoop _loop;
         private ForegroundWatcher _foreground;
@@ -47,9 +52,10 @@ namespace AutoTrigger
         private bool _exiting;
         private int _statePending;
 
-        public App(SingleInstance instance)
+        public App(SingleInstance instance, Command startCommand)
         {
             _instance = instance;
+            _startCommand = startCommand ?? Command.Parse(null);
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
         }
 
@@ -86,15 +92,64 @@ namespace AutoTrigger
             CreateDisplayTimer();
             CreateTray();
 
+            ApplyStartPause();
             _engine.Start(_settings.MonitoringPaused);
             _displays.Refresh();
+            _hotkeys.Update(_settings.Profiles);
+            _controller.Changed += () => _hotkeys.Update(_settings.Profiles);
+            if (_startCommand.Kind == CommandKind.Profile)
+                _engine.RunProfileNamed(_startCommand.ProfileName, "command line");
 
-            if (!_settings.StartMinimized)
+            if (!_settings.StartMinimized && _startCommand.Kind == CommandKind.None)
                 ShowWindow();
             if (!string.IsNullOrEmpty(loaded.Message))
                 MessageDialog.Show(_window, Texts.SettingsProblemTitle, loaded.Message, Texts.Ok);
 
             _instance.Listen(() => Dispatcher.BeginInvoke(new Action(ShowWindow)));
+            _commands = new CommandServer(CommandChannel.PipeName, HandleCommand, CommandPipe.CreateSecured);
+        }
+
+        private void ApplyStartPause()
+        {
+            bool? paused = PausedAfter(_startCommand.Kind, _settings.MonitoringPaused);
+            if (paused == null || paused.Value == _settings.MonitoringPaused)
+                return;
+            _settings.MonitoringPaused = paused.Value;
+            _controller.SaveOnly();
+        }
+
+        private static bool? PausedAfter(CommandKind kind, bool paused)
+        {
+            switch (kind)
+            {
+                case CommandKind.Pause: return true;
+                case CommandKind.Resume: return false;
+                case CommandKind.Toggle: return !paused;
+                default: return null;
+            }
+        }
+
+        private Task<string> HandleCommand(Command command)
+        {
+            const string closing = "closing";
+            if (_exiting)
+                return Task.FromResult(closing);
+            if (command.Kind == CommandKind.Profile)
+            {
+                var result = new TaskCompletionSource<string>();
+                _engine.RunProfileNamed(command.ProfileName, "command line",
+                    found => result.TrySetResult(found ? CommandServer.Ok : "profile not found"));
+                return result.Task;
+            }
+            return Dispatcher.InvokeAsync(() =>
+            {
+                if (_exiting)
+                    return closing;
+                bool? paused = PausedAfter(command.Kind, _settings.MonitoringPaused);
+                if (paused != null && paused.Value != _settings.MonitoringPaused)
+                    SetMonitoringPaused(paused.Value);
+                return CommandServer.Ok;
+            }).Task;
         }
 
         private static void RemoveListContextMenus()
@@ -139,14 +194,20 @@ namespace AutoTrigger
             var displayHardware = new WindowsDisplayHardware();
             _audio = new WindowsAudioHardware();
             _powerPlans = new WindowsPowerPlans();
-            _executor = new ActionExecutor(_processes, displayHardware, _audio, _powerPlans, new WindowsKeyboard());
+            _keyboard = new WindowsKeyboard();
+            KeyNames.LayoutName = WindowsKeyboard.LayoutName;
+            _screenSaver = new WindowsScreenSaver();
+            _executor = new ActionExecutor(_processes, displayHardware, _audio, _powerPlans, _keyboard, _screenSaver);
+            _hotkeys = new HotkeyService(_keyboard,
+                (profileId, keys) => _engine?.RunProfile(profileId, "keyboard shortcut " + KeyNames.Readable(keys)));
+            HotkeyBox.CapturingChanged += capturing => _hotkeys?.Suspend(capturing);
             _displays = new DisplayService(_controller, displayHardware, _executor, Dispatcher);
         }
 
         private StatusPage CreateWindow()
         {
             var status = new StatusPage(_icons);
-            _profilesPage = new ProfilesPage(_controller, _processes, _displays, _audio, _powerPlans, () => _window);
+            _profilesPage = new ProfilesPage(_controller, _processes, _displays, _audio, _powerPlans, _hotkeys, () => _window);
             var pages = new FrameworkElement[]
             {
                 new ApplicationsPage(_controller, _processes, _icons, () => _window),
@@ -272,6 +333,8 @@ namespace AutoTrigger
             try
             {
                 _displayTimer?.Stop();
+                _commands?.Dispose();
+                _hotkeys?.Dispose();
                 _menu?.Dispose();
                 _tray?.Dispose();
                 _engine?.Dispose();
@@ -287,7 +350,7 @@ namespace AutoTrigger
             Log.Stop(TimeSpan.FromSeconds(2));
             try
             {
-                MessageBox.Show(string.Format(Texts.StartupError, Log.FilePath), Texts.AppName, MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(Texts.Format(Texts.StartupError, Log.FilePath), Texts.AppName, MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch (Exception)
             {
@@ -376,7 +439,7 @@ namespace AutoTrigger
             catch (Exception ex)
             {
                 Log.Error("Start with Windows could not be changed", ex);
-                MessageDialog.Show(_window, Texts.StartWithWindows, string.Format(Texts.StartupFailed, ex.Message), Texts.Ok);
+                MessageDialog.Show(_window, Texts.StartWithWindows, Texts.Format(Texts.StartupFailed, ex.Message), Texts.Ok);
             }
         }
 
@@ -394,148 +457,25 @@ namespace AutoTrigger
                 string message = t.Exception?.GetBaseException().Message ?? "unknown error";
                 Log.Error($"{app.Name} cannot be launched: {message}");
                 Dispatcher.BeginInvoke(new Action(() =>
-                    MessageDialog.Show(_window, Texts.LaunchFailedTitle, string.Format(Texts.LaunchFailed, app.Name, message), Texts.Ok)));
+                    MessageDialog.Show(_window, Texts.LaunchFailedTitle, Texts.Format(Texts.LaunchFailed, app.Name, message), Texts.Ok)));
             }, TaskScheduler.Default);
         }
 
         private void SetHdr(bool on)
         {
             _displays.SetHdr(on, error =>
-                MessageDialog.Show(_window, Texts.HdrFailedTitle, string.Format(Texts.HdrFailed, error), Texts.Ok));
+                MessageDialog.Show(_window, Texts.HdrFailedTitle, Texts.Format(Texts.HdrFailed, error), Texts.Ok));
             _window.Status.ShowHdr(_displays.Hdr, _displays.IsChanging);
         }
 
         private void ShowAbout()
         {
             DialogChoice choice = MessageDialog.Show(_window, Texts.About + " " + Texts.AppName,
-                string.Format(Texts.AboutText, _version), Texts.Close, Texts.OpenLicenses);
+                Texts.Format(Texts.AboutText, _version), Texts.Close, Texts.OpenLicenses, Texts.GitHub);
             if (choice == DialogChoice.Secondary)
                 OpenInNotepad(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "NOTICE.txt"));
-        }
-
-        private void ImportFromAutoActions()
-        {
-            string file = PickAutoActionsFile();
-            if (file == null)
-                return;
-
-            ImportResult result;
-            try
-            {
-                result = AutoActionsImport.Read(File.ReadAllText(file, Encoding.UTF8));
-            }
-            catch (Exception ex) when (ex is FormatException || ex is IOException || ex is UnauthorizedAccessException)
-            {
-                Log.Error($"Import from AutoActions failed ({file}): {ex.Message}");
-                ShowImportError(ex.Message);
-                return;
-            }
-
-            if (HasContent() && !ConfirmReplace())
-                return;
-
-            string backup;
-            try
-            {
-                backup = _store.BackupBeforeImport();
-            }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
-            {
-                Log.Error("The current settings could not be copied before the import", ex);
-                ShowImportError(ex.Message);
-                return;
-            }
-
-            ApplyImport(result);
-            LogImport(result, file, backup);
-            MessageDialog.Show(_window, Texts.ImportFromAutoActions, ImportSummary(result), Texts.Ok);
-        }
-
-        private string PickAutoActionsFile()
-        {
-            string found = null;
-            try
-            {
-                found = AutoActionsLocator.FindSettingsFile(_processes);
-            }
-            catch (Exception ex)
-            {
-                Log.Detailed("AutoActions could not be looked for: " + ex.Message);
-            }
-
-            var dialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Title = Texts.ImportFromAutoActions,
-                Filter = Texts.ImportFilter,
-                CheckFileExists = true,
-            };
-            if (found != null)
-            {
-                dialog.InitialDirectory = Path.GetDirectoryName(found);
-                dialog.FileName = Path.GetFileName(found);
-            }
-            return dialog.ShowDialog(_window) == true ? dialog.FileName : null;
-        }
-
-        private bool HasContent() => _settings.Applications.Count > 0 || _settings.Profiles.Count > 0;
-
-        private bool ConfirmReplace() =>
-            MessageDialog.Show(_window, Texts.ImportFromAutoActions, Texts.ImportReplaceText, Texts.Replace, Texts.Cancel) == DialogChoice.Primary;
-
-        private void ShowImportError(string reason) =>
-            MessageDialog.Show(_window, Texts.ImportFromAutoActions, string.Format(Texts.ImportFailed, reason), Texts.Ok);
-
-        private void ApplyImport(ImportResult result)
-        {
-            _settings.Applications.Clear();
-            _settings.Applications.AddRange(result.Applications);
-            _settings.Profiles.Clear();
-            _settings.Profiles.AddRange(result.Profiles);
-            _settings.Displays.Clear();
-            _settings.Displays.AddRange(result.Displays);
-            _controller.Commit();
-            _displays.Refresh();
-        }
-
-        private static void LogImport(ImportResult result, string file, string backup)
-        {
-            string copied = backup != null ? $"; previous settings copied to {Path.GetFileName(backup)}" : string.Empty;
-            Log.Info($"Imported from AutoActions ({file}): {result.Applications.Count} applications, {result.Profiles.Count} profiles, "
-                + $"{result.ActionCount} actions, {result.Displays.Count} displays{copied}");
-            foreach (string warning in result.Warnings)
-                Log.Warning("Import: " + warning);
-        }
-
-        private static string ImportSummary(ImportResult result)
-        {
-            const int shownNotes = 8;
-            var text = new StringBuilder(string.Format(Texts.ImportDone,
-                result.Applications.Count, result.Profiles.Count, result.ActionCount, result.Displays.Count));
-            if (result.Warnings.Count > 0)
-            {
-                text.Append("\n\n").Append(Texts.ImportNotes);
-                foreach (string warning in result.Warnings.Take(shownNotes))
-                    text.Append("\n• ").Append(warning);
-                if (result.Warnings.Count > shownNotes)
-                    text.Append('\n').Append(string.Format(Texts.ImportMoreNotes, result.Warnings.Count - shownNotes));
-            }
-            if (IsAutoActionsRunning())
-                text.Append("\n\n").Append(Texts.ImportQuitAutoActions);
-            if (result.AutoStart)
-                text.Append("\n\n").Append(Texts.ImportAutoStart);
-            return text.ToString();
-        }
-
-        private static bool IsAutoActionsRunning()
-        {
-            try
-            {
-                return AutoActionsLocator.IsRunning();
-            }
-            catch (Exception)
-            {
-                return false;
-            }
+            else if (choice == DialogChoice.Extra)
+                ShellOpen(Texts.RepositoryUrl);
         }
 
         private void OpenLog()
@@ -548,23 +488,29 @@ namespace AutoTrigger
                     Directory.CreateDirectory(Path.GetDirectoryName(path));
                     File.WriteAllText(path, string.Empty);
                 }
-                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose();
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
-                OpenInNotepad(path);
+                Log.Warning($"{path} cannot be created", ex);
             }
+            if (!ShellOpen(path, null, false))
+                OpenInNotepad(path);
         }
 
-        private static void OpenInNotepad(string path)
+        private static void OpenInNotepad(string path) => ShellOpen("notepad.exe", "\"" + path + "\"");
+
+        private static bool ShellOpen(string target, string arguments = null, bool logFailure = true)
         {
             try
             {
-                Process.Start(new ProcessStartInfo("notepad.exe", "\"" + path + "\"") { UseShellExecute = true })?.Dispose();
+                Process.Start(new ProcessStartInfo(target, arguments ?? string.Empty) { UseShellExecute = true })?.Dispose();
+                return true;
             }
             catch (Exception ex)
             {
-                Log.Error($"{path} cannot be opened", ex);
+                if (logFailure)
+                    Log.Error($"{target} cannot be opened", ex);
+                return false;
             }
         }
 
@@ -577,16 +523,20 @@ namespace AutoTrigger
             try
             {
                 _displayTimer?.Stop();
+                _commands?.Dispose();
+                _hotkeys?.Dispose();
                 _menu?.Dispose();
                 _window?.Close();
                 _controller?.Flush();
                 _tray?.Dispose();
                 _engine?.Dispose();
+                _screenSaver?.RestoreIfTurnedOff();
                 _loop?.Dispose();
                 _executor?.Dispose();
                 _foreground?.Dispose();
+                _processes?.Dispose();
                 _icons?.Dispose();
-                _store?.FlushPending();
+                _store?.Dispose();
             }
             catch (Exception ex)
             {
@@ -616,7 +566,7 @@ namespace AutoTrigger
             Log.Stop(TimeSpan.FromSeconds(2));
             try
             {
-                MessageBox.Show(string.Format(Texts.FatalError, Log.FilePath), Texts.AppName, MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(Texts.Format(Texts.FatalError, Log.FilePath), Texts.AppName, MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch (Exception)
             {

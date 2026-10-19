@@ -59,6 +59,11 @@ namespace AutoTrigger.Core.Engine
         int GetForegroundProcessId();
     }
 
+    public static class ForegroundIds
+    {
+        public const int EmptyFrame = -1;
+    }
+
     public interface IEngineScheduler
     {
         void Post(Action action);

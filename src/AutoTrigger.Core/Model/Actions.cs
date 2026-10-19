@@ -122,9 +122,12 @@ namespace AutoTrigger.Core.Model
         public override string Describe() => "Display";
     }
 
-    public sealed class AudioAction : ProfileAction
+    public sealed class WindowsSettingsAction : ProfileAction
     {
-        public const string TypeName = "audio";
+        public const string TypeName = "windowsSettings";
+        public const string AudioTypeName = "audio";
+        public const string PowerPlanTypeName = "powerPlan";
+        public const string ScreenSaverTypeName = "screenSaver";
 
         public override string Type => TypeName;
 
@@ -138,20 +141,19 @@ namespace AutoTrigger.Core.Model
 
         public string RecordName { get; set; } = string.Empty;
 
-        public override string Describe() => "Audio";
-    }
-
-    public sealed class PowerPlanAction : ProfileAction
-    {
-        public const string TypeName = "powerPlan";
-
-        public override string Type => TypeName;
-
         public Guid PlanId { get; set; }
 
         public string PlanName { get; set; } = string.Empty;
 
-        public override string Describe() => "Power plan " + (string.IsNullOrWhiteSpace(PlanName) ? PlanId.ToString("D") : PlanName);
+        public bool? ScreenSaverOn { get; set; }
+
+        public bool ChangesAudio => !string.IsNullOrWhiteSpace(PlaybackDevice) || !string.IsNullOrWhiteSpace(RecordDevice);
+
+        public bool ChangesPowerPlan => PlanId != Guid.Empty;
+
+        public bool HasChanges => ChangesAudio || ChangesPowerPlan || ScreenSaverOn.HasValue;
+
+        public override string Describe() => "Windows settings";
     }
 
     public sealed class PressHotkeyAction : ProfileAction
@@ -160,15 +162,9 @@ namespace AutoTrigger.Core.Model
 
         public override string Type => TypeName;
 
-        public bool Ctrl { get; set; }
+        public KeyCombination Keys { get; set; } = new KeyCombination();
 
-        public bool Alt { get; set; }
-
-        public bool Shift { get; set; }
-
-        public int Key { get; set; }
-
-        public override string Describe() => "Press hotkey " + KeyNames.Combination(this);
+        public override string Describe() => "Hotkey " + KeyNames.Readable(Keys);
     }
 
     public sealed class UnknownAction : ProfileAction

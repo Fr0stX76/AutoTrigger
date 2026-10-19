@@ -109,7 +109,7 @@ namespace AutoTrigger.Core.Platform
                 }
                 finally
                 {
-                    PropVariantClear(ref value);
+                    _ = PropVariantClear(ref value);
                 }
             }
             finally

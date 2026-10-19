@@ -6,8 +6,4 @@
     <AssemblyTitle>AutoTrigger engine</AssemblyTitle>
   </PropertyGroup>
 
-  <ItemGroup>
-    <InternalsVisibleTo Include="AutoTrigger" />
-  </ItemGroup>
-
 </Project>

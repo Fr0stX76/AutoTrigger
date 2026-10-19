@@ -13,11 +13,11 @@ namespace AutoTrigger.Core.Engine
     {
         private const int ClosePollMs = 100;
         public const int KeyHoldMs = 50;
+        public const int HeldKeysWaitMs = 1000;
 
         private readonly IProcessSystem _processes;
         private readonly DisplayActionRunner _displays;
-        private readonly AudioActionRunner _audio;
-        private readonly IPowerPlans _powerPlans;
+        private readonly WindowsSettingsRunner _windows;
         private readonly IKeyboard _keyboard;
         private readonly SemaphoreSlim _hardware = new SemaphoreSlim(1, 1);
         private readonly CancellationTokenSource _shutdown = new CancellationTokenSource();
@@ -26,12 +26,11 @@ namespace AutoTrigger.Core.Engine
         private Task _orderTail = Task.FromResult(true);
 
         public ActionExecutor(IProcessSystem processes, IDisplayHardware displays = null, IAudioHardware audio = null,
-            IPowerPlans powerPlans = null, IKeyboard keyboard = null)
+            IPowerPlans powerPlans = null, IKeyboard keyboard = null, IScreenSaver screenSaver = null)
         {
             _processes = processes ?? throw new ArgumentNullException(nameof(processes));
             _displays = displays == null ? null : new DisplayActionRunner(displays);
-            _audio = audio == null ? null : new AudioActionRunner(audio);
-            _powerPlans = powerPlans;
+            _windows = new WindowsSettingsRunner(audio, powerPlans, screenSaver);
             _keyboard = keyboard;
             using (Process self = Process.GetCurrentProcess())
                 _ownPid = self.Id;
@@ -49,8 +48,6 @@ namespace AutoTrigger.Core.Engine
                     return Safe(InOrder(() => RunProgram(run)));
                 case CloseProgramAction close:
                     return Safe(CloseProgramAsync(close));
-                case PowerPlanAction plan:
-                    return Safe(Task.Run(() => SetPowerPlan(plan)));
                 case PressHotkeyAction keys:
                     return Safe(InOrder(() => PressHotkey(keys)));
                 case IncludeProfileAction _:
@@ -114,11 +111,10 @@ namespace AutoTrigger.Core.Engine
                 {
                     case DisplayAction display when _displays != null:
                         return _displays.Run(display, DisplayEntries?.Invoke() ?? new List<DisplayEntry>());
-                    case AudioAction audio when _audio != null:
-                        return _audio.Run(audio);
+                    case WindowsSettingsAction windows:
+                        return _windows.Run(windows);
                     case DisplayAction _:
-                    case AudioAction _:
-                        return ActionOutcome.Skip("display and audio changes are not available here");
+                        return ActionOutcome.Skip("display changes are not available here");
                     default:
                         return ActionOutcome.Skip($"unsupported action '{action.Type}'");
                 }
@@ -129,32 +125,19 @@ namespace AutoTrigger.Core.Engine
             }
         }
 
-        private ActionOutcome SetPowerPlan(PowerPlanAction action)
-        {
-            if (_powerPlans == null)
-                return ActionOutcome.Skip("power plans are not available here");
-            if (action.PlanId == Guid.Empty)
-                return ActionOutcome.Failure("no power plan set");
-            PowerPlan plan = _powerPlans.GetPlans().Find(p => p.Id == action.PlanId);
-            if (plan == null)
-                return ActionOutcome.Failure("power plan not found");
-            if (_powerPlans.GetActive() == plan.Id)
-                return ActionOutcome.Success("already active");
-            _powerPlans.SetActive(plan.Id);
-            return ActionOutcome.Success("now active");
-        }
-
         private ActionOutcome PressHotkey(PressHotkeyAction action)
         {
             if (_keyboard == null)
                 return ActionOutcome.Skip("hotkeys are not available here");
-            if (action.Key == 0)
-                return ActionOutcome.Failure("no hotkey set");
-            string keys = KeyNames.Combination(action);
+            if (action.Keys == null || !action.Keys.IsSet)
+                return ActionOutcome.Failure("no keyboard shortcut set");
+            string keys = KeyNames.Readable(action.Keys);
+            bool released = _keyboard.WaitForHeldKeys(HeldKeysWaitMs);
             if (_keyboard.FrontWindowRunsAsAdmin())
                 return ActionOutcome.Failure($"{keys} not sent: the window in front runs as administrator, and Windows blocks keys sent to it");
-            _keyboard.Press(action, KeyHoldMs);
-            return ActionOutcome.Success(keys + " sent");
+            _keyboard.Press(action.Keys, KeyHoldMs);
+            return ActionOutcome.Success(released ? keys + " sent"
+                : $"{keys} sent while Ctrl, Alt, Shift or Windows was still held down after {HeldKeysWaitMs / 1000} s");
         }
 
         private ActionOutcome RunProgram(RunProgramAction action)

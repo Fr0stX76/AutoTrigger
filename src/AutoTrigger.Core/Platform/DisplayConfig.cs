@@ -91,7 +91,7 @@ namespace AutoTrigger.Core.Platform
         {
             try
             {
-                var info = new NativeMethods.OSVERSIONINFOW { dwOSVersionInfoSize = Marshal.SizeOf(typeof(NativeMethods.OSVERSIONINFOW)) };
+                var info = new NativeMethods.OSVERSIONINFOW { dwOSVersionInfoSize = Marshal.SizeOf<NativeMethods.OSVERSIONINFOW>() };
                 if (NativeMethods.RtlGetVersion(ref info) == 0)
                 {
                     if (info.dwMajorVersion > 10)
@@ -130,12 +130,12 @@ namespace AutoTrigger.Core.Platform
         {
             if (string.IsNullOrEmpty(gdiName))
                 return string.Empty;
-            var device = new NativeMethods.DISPLAY_DEVICEW { cb = Marshal.SizeOf(typeof(NativeMethods.DISPLAY_DEVICEW)) };
+            var device = new NativeMethods.DISPLAY_DEVICEW { cb = Marshal.SizeOf<NativeMethods.DISPLAY_DEVICEW>() };
             for (uint i = 0; NativeMethods.EnumDisplayDevices(null, i, ref device, 0); i++)
             {
                 if (string.Equals(device.DeviceName, gdiName, StringComparison.OrdinalIgnoreCase))
                     return device.DeviceString ?? string.Empty;
-                device.cb = Marshal.SizeOf(typeof(NativeMethods.DISPLAY_DEVICEW));
+                device.cb = Marshal.SizeOf<NativeMethods.DISPLAY_DEVICEW>();
             }
             return string.Empty;
         }

@@ -1,4 +1,4 @@
-﻿AutoTrigger 1.0
+﻿AutoTrigger
 Copyright © 2026 Fr0stX76
 Licensed under the MIT License. See LICENSE.
 

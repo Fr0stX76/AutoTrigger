@@ -6,6 +6,8 @@ namespace AutoTrigger.Core.Platform
 {
     public sealed class ForegroundWatcher : IForegroundSource, IDisposable
     {
+        private const string StoreAppFrameClass = "ApplicationFrameWindow";
+
         private readonly NativeMethods.WinEventProc _callback;
         private IntPtr _hook;
 
@@ -25,8 +27,34 @@ namespace AutoTrigger.Core.Platform
             IntPtr window = NativeMethods.GetForegroundWindow();
             if (window == IntPtr.Zero)
                 return 0;
-            NativeMethods.GetWindowThreadProcessId(window, out int pid);
-            return pid;
+            _ = NativeMethods.GetWindowThreadProcessId(window, out int pid);
+            if (!IsStoreAppFrame(window))
+                return pid;
+            int hosted = HostedAppProcess(window, pid);
+            return hosted != 0 ? hosted : ForegroundIds.EmptyFrame;
+        }
+
+        private static bool IsStoreAppFrame(IntPtr window)
+        {
+            var name = new char[64];
+            int length = NativeMethods.GetClassName(window, name, name.Length);
+            return length > 0 && string.Equals(new string(name, 0, length), StoreAppFrameClass, StringComparison.Ordinal);
+        }
+
+        private static int HostedAppProcess(IntPtr frame, int framePid)
+        {
+            int hosted = 0;
+            NativeMethods.EnumChildProc visit = (child, lParam) =>
+            {
+                _ = NativeMethods.GetWindowThreadProcessId(child, out int pid);
+                if (pid == 0 || pid == framePid)
+                    return true;
+                hosted = pid;
+                return false;
+            };
+            NativeMethods.EnumChildWindows(frame, visit, IntPtr.Zero);
+            GC.KeepAlive(visit);
+            return hosted;
         }
 
         private void OnWinEvent(IntPtr hook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint thread, uint time)

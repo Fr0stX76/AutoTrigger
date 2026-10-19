@@ -121,6 +121,8 @@ namespace AutoTrigger.Core.Model
 
         public bool RestartApp { get; set; }
 
+        public KeyCombination Shortcut { get; set; }
+
         public List<ProfileAction> OnStart { get; } = new List<ProfileAction>();
 
         public List<ProfileAction> OnClose { get; } = new List<ProfileAction>();

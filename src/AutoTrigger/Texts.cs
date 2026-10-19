@@ -1,4 +1,6 @@
-﻿namespace AutoTrigger
+﻿using System.Globalization;
+
+namespace AutoTrigger
 {
     internal static class Texts
     {
@@ -63,14 +65,13 @@
         public const string TypeCloseProgram = "Close program";
         public const string TypeReferenceProfile = "Reference profile";
         public const string TypeDisplay = "Display";
-        public const string TypeAudio = "Audio";
-        public const string TypePowerPlan = "Power plan";
-        public const string TypePressHotkey = "Press hotkey";
+        public const string TypeWindowsSettings = "Windows settings";
+        public const string TypeHotkey = "Hotkey";
         public const string TypeUnknown = "Unknown action";
         public const string NoProgram = "No program";
         public const string MissingProfile = "Missing profile";
-        public const string Playback = "Playback";
-        public const string Recording = "Recording";
+        public const string AudioOutput = "Audio output";
+        public const string AudioInput = "Audio input";
         public const string NoChange = "No change";
         public const string NoActions = "No actions";
         public const string OneAction = "1 action";
@@ -110,19 +111,27 @@
         public const string OutputFormat = "Output format";
         public const string DynamicRange = "Dynamic range";
         public const string NotOffered = "not offered";
-        public const string PlaybackDevice = "Playback device";
-        public const string RecordingDevice = "Recording device";
+        public const string AudioOutputDevice = "Audio output device";
+        public const string AudioInputDevice = "Audio input device";
         public const string ErrorNothingToChange = "Choose at least one setting to change.";
         public const string MissingDisplayIgnored = "Ignored: missing display";
         public const string PowerPlan = "Power plan";
         public const string ActiveShort = "active";
         public const string NotFoundShort = "not found";
         public const string PowerPlanNotFound = "Power plan not found";
-        public const string ErrorNoPowerPlan = "No power plan found.";
-        public const string Hotkey = "Hotkey";
         public const string PressKeys = "Press the keys";
-        public const string NoHotkey = "No hotkey";
-        public const string ErrorNoHotkey = "Press the hotkey to send.";
+        public const string NoHotkey = "No keyboard shortcut";
+        public const string ErrorNoHotkey = "Press the keyboard shortcut to send.";
+        public const string ErrorHotkeyIsShortcut = "This is the keyboard shortcut of profile '{0}': pressing it would run that profile.";
+        public const string ScreenSaver = "Screen saver";
+        public const string ScreenSaverOn = "Screen saver on";
+        public const string ScreenSaverOff = "Screen saver off";
+        public const string KeyboardShortcut = "Keyboard shortcut";
+        public const string ErrorShortcutModifier = "Use Ctrl or Alt, with or without Shift.";
+        public const string ErrorShortcutAltGr = "With your keyboard layout, this combination types a character (AltGr).";
+        public const string ErrorShortcutTaken = "Profile '{0}' already uses this keyboard shortcut.";
+        public const string ErrorShortcutIsHotkey = "A 'Hotkey' action in profile '{0}' sends these keys.";
+        public const string ShortcutInUse = "Another program already uses this keyboard shortcut.";
 
         public const string SearchProfiles = "Search profiles";
         public const string SearchApplications = "Search applications";
@@ -191,6 +200,8 @@
         public const string Close = "Close";
         public const string Ok = "OK";
         public const string OpenLicenses = "Open licenses";
+        public const string GitHub = "GitHub";
+        public const string RepositoryUrl = "https://github.com/Fr0stX76/AutoTrigger";
         public const string SettingsProblemTitle = "Settings";
         public const string LaunchFailedTitle = "Launch";
         public const string LaunchFailed = "{0} cannot be started: {1}";
@@ -210,11 +221,14 @@
         public const string ImportFailed = "This file cannot be imported: {0}.";
         public const string ImportDone = "Imported {0} applications, {1} profiles ({2} actions) and {3} displays.";
         public const string ImportNotes = "Notes:";
+        public const string ImportPrograms = "Programs these profiles will start:";
         public const string ImportMoreNotes = "…and {0} more.";
         public const string ImportQuitAutoActions = "AutoActions is still running: quit it so that actions do not run twice.";
         public const string ImportAutoStart = "AutoActions starts with Windows: turn that off in AutoActions, and turn on Start with Windows here.";
         public const string StartupError = "AutoTrigger could not start. Details are in the log:\n{0}";
         public const string FatalError = "AutoTrigger has to close after an unexpected error. Details are in the log:\n{0}";
         public const string Paused = "AutoTrigger (paused)";
+
+        public static string Format(string format, params object[] args) => string.Format(CultureInfo.CurrentCulture, format, args);
     }
 }

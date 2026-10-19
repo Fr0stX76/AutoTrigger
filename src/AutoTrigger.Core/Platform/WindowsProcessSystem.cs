@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoTrigger.Core.Engine;
@@ -11,7 +10,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace AutoTrigger.Core.Platform
 {
-    public sealed class WindowsProcessSystem : IProcessSystem
+    public sealed class WindowsProcessSystem : IProcessSystem, IDisposable
     {
         private readonly ProcessScanner _scanner = new ProcessScanner();
 
@@ -23,21 +22,21 @@ namespace AutoTrigger.Core.Platform
             {
                 if (process.IsInvalid || !IsActive(process))
                     return null;
-                var buffer = new StringBuilder(1024);
-                int size = buffer.Capacity;
+                var buffer = new char[1024];
+                int size = buffer.Length;
                 if (!NativeMethods.QueryFullProcessImageName(process, 0, buffer, ref size))
                 {
                     if (Marshal.GetLastWin32Error() != NativeMethods.ERROR_INSUFFICIENT_BUFFER)
                         return null;
-                    buffer = new StringBuilder(32768);
-                    size = buffer.Capacity;
+                    buffer = new char[32768];
+                    size = buffer.Length;
                     if (!NativeMethods.QueryFullProcessImageName(process, 0, buffer, ref size))
                         return null;
                 }
                 return new ProcessDetails
                 {
                     Pid = pid,
-                    Path = buffer.ToString(0, size),
+                    Path = new string(buffer, 0, size),
                     CreationTime = CreationTime(process),
                 };
             }
@@ -46,22 +45,29 @@ namespace AutoTrigger.Core.Platform
         public IDisposable WatchExit(int pid, long creationTime, Action onExit)
         {
             SafeKernelHandle process = Open(pid, NativeMethods.SYNCHRONIZE | NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION);
-            if (process.IsInvalid)
+            try
             {
-                process.Dispose();
-                return null;
-            }
-            if (creationTime != 0)
-            {
-                long actual = CreationTime(process);
-                if (actual != 0 && actual != creationTime)
+                if (process.IsInvalid)
+                    return null;
+                if (creationTime != 0)
                 {
-                    process.Dispose();
-                    ThreadPool.QueueUserWorkItem(_ => onExit());
-                    return new ExitWatcher(null, null);
+                    long actual = CreationTime(process);
+                    if (actual != 0 && actual != creationTime)
+                    {
+                        process.Dispose();
+                        process = null;
+                        ThreadPool.QueueUserWorkItem(_ => onExit());
+                        return new ExitWatcher(null, null);
+                    }
                 }
+                var watcher = new ExitWatcher(process, onExit);
+                process = null;
+                return watcher;
             }
-            return new ExitWatcher(process, onExit);
+            finally
+            {
+                process?.Dispose();
+            }
         }
 
         public bool IsRunning(int pid, long creationTime)
@@ -132,7 +138,7 @@ namespace AutoTrigger.Core.Platform
             int asked = 0;
             NativeMethods.EnumWindowsProc callback = (hwnd, lParam) =>
             {
-                NativeMethods.GetWindowThreadProcessId(hwnd, out int owner);
+                _ = NativeMethods.GetWindowThreadProcessId(hwnd, out int owner);
                 if (owner == pid && NativeMethods.IsWindowVisible(hwnd)
                     && NativeMethods.GetWindow(hwnd, NativeMethods.GW_OWNER) == IntPtr.Zero
                     && NativeMethods.PostMessage(hwnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero))
@@ -171,7 +177,7 @@ namespace AutoTrigger.Core.Platform
             {
                 if (process.IsInvalid)
                     return null;
-                NativeMethods.NtQueryInformationProcess(process, NativeMethods.ProcessCommandLineInformation, IntPtr.Zero, 0, out int needed);
+                _ = NativeMethods.NtQueryInformationProcess(process, NativeMethods.ProcessCommandLineInformation, IntPtr.Zero, 0, out int needed);
                 if (needed <= 0 || needed > 1024 * 1024)
                     return null;
                 IntPtr buffer = Marshal.AllocHGlobal(needed);
@@ -191,6 +197,8 @@ namespace AutoTrigger.Core.Platform
                 }
             }
         }
+
+        public void Dispose() => _scanner.Dispose();
 
         private static SafeKernelHandle Open(int pid, uint access) => NativeMethods.OpenProcess(access, false, pid);
 

@@ -184,7 +184,7 @@ namespace AutoTrigger.Ui
             }
             finally
             {
-                Win32.ReleaseDC(IntPtr.Zero, dc);
+                _ = Win32.ReleaseDC(IntPtr.Zero, dc);
             }
         }
 
@@ -192,7 +192,7 @@ namespace AutoTrigger.Ui
         {
             var info = new Win32.MENUINFO
             {
-                cbSize = (uint)Marshal.SizeOf(typeof(Win32.MENUINFO)),
+                cbSize = (uint)Marshal.SizeOf<Win32.MENUINFO>(),
                 fMask = Win32.MIM_BACKGROUND | Win32.MIM_STYLE,
                 dwStyle = Win32.MNS_NOCHECK,
                 hbrBack = _look.BackgroundBrush,
@@ -215,7 +215,7 @@ namespace AutoTrigger.Ui
             }
             finally
             {
-                Win32.ReleaseDC(_owner.Handle, dc);
+                _ = Win32.ReleaseDC(_owner.Handle, dc);
             }
             _look.ItemWidth = textWidth + _look.Scale(40);
             _look.ItemHeight = Math.Max(textHeight + _look.Scale(10), _look.Scale(28));
@@ -297,17 +297,17 @@ namespace AutoTrigger.Ui
                 else if (selected)
                     ink = _look.SelectedText;
 
-                Win32.SetDCBrushColor(dc, selected ? _look.Highlight : _look.Background);
+                _ = Win32.SetDCBrushColor(dc, selected ? _look.Highlight : _look.Background);
                 Win32.RECT rect = draw.rcItem;
-                Win32.FillRect(dc, ref rect, Win32.GetStockObject(Win32.DC_BRUSH));
+                _ = Win32.FillRect(dc, ref rect, Win32.GetStockObject(Win32.DC_BRUSH));
 
                 Win32.SelectObject(dc, item.IsDefault ? _look.BoldFont : _look.Font);
-                Win32.SetBkMode(dc, Win32.TRANSPARENT);
-                Win32.SetTextColor(dc, ink);
+                _ = Win32.SetBkMode(dc, Win32.TRANSPARENT);
+                _ = Win32.SetTextColor(dc, ink);
                 Win32.RECT label = rect;
                 label.Left += _look.Scale(32);
                 label.Right -= _look.Scale(8);
-                Win32.DrawText(dc, item.Text, item.Text.Length, ref label,
+                _ = Win32.DrawText(dc, item.Text, item.Text.Length, ref label,
                     Win32.DT_LEFT | Win32.DT_VCENTER | Win32.DT_SINGLELINE | Win32.DT_NOPREFIX);
 
                 if ((draw.itemState & Win32.ODS_CHECKED) != 0)
@@ -340,8 +340,9 @@ namespace AutoTrigger.Ui
             IntPtr found = IntPtr.Zero;
             Win32.EnumThreadWindows(Win32.GetCurrentThreadId(), (hwnd, _) =>
             {
-                var name = new System.Text.StringBuilder(16);
-                if (Win32.IsWindowVisible(hwnd) && Win32.GetClassName(hwnd, name, name.Capacity) > 0 && name.ToString() == "#32768")
+                var name = new char[16];
+                int length = Win32.IsWindowVisible(hwnd) ? Win32.GetClassName(hwnd, name, name.Length) : 0;
+                if (length > 0 && new string(name, 0, length) == "#32768")
                 {
                     found = hwnd;
                     return false;
@@ -354,7 +355,7 @@ namespace AutoTrigger.Ui
             int preference = Win32.DWMWCP_ROUNDSMALL;
             try
             {
-                Win32.DwmSetWindowAttribute(found, Win32.DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+                _ = Win32.DwmSetWindowAttribute(found, Win32.DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
             }
             catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
             {
@@ -419,7 +420,7 @@ namespace AutoTrigger.Ui
                 Checked = isChecked;
                 IsDefault = isDefault;
                 _text = Marshal.StringToHGlobalUni(text);
-                AccessibleInfo = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(Win32.MSAAMENUINFO)));
+                AccessibleInfo = Marshal.AllocHGlobal(Marshal.SizeOf<Win32.MSAAMENUINFO>());
                 Marshal.StructureToPtr(new Win32.MSAAMENUINFO
                 {
                     dwMSAASignature = Win32.MSAA_MENU_SIG,
@@ -457,7 +458,7 @@ namespace AutoTrigger.Ui
             public Look(uint dpi)
             {
                 _dpi = dpi;
-                var contrast = new Win32.HIGHCONTRAST { cbSize = (uint)Marshal.SizeOf(typeof(Win32.HIGHCONTRAST)) };
+                var contrast = new Win32.HIGHCONTRAST { cbSize = (uint)Marshal.SizeOf<Win32.HIGHCONTRAST>() };
                 bool highContrast = Win32.SystemParametersInfo(Win32.SPI_GETHIGHCONTRAST, contrast.cbSize, ref contrast, 0)
                     && (contrast.dwFlags & Win32.HCF_HIGHCONTRASTON) != 0;
                 bool dark = !highContrast && !TaskbarIsLight();
@@ -543,7 +544,7 @@ namespace AutoTrigger.Ui
 
             private static Win32.LOGFONTW MenuFont(uint dpi)
             {
-                var metrics = new Win32.NONCLIENTMETRICSW { cbSize = (uint)Marshal.SizeOf(typeof(Win32.NONCLIENTMETRICSW)) };
+                var metrics = new Win32.NONCLIENTMETRICSW { cbSize = (uint)Marshal.SizeOf<Win32.NONCLIENTMETRICSW>() };
                 try
                 {
                     if (Win32.SystemParametersInfoForDpi(Win32.SPI_GETNONCLIENTMETRICS, metrics.cbSize, ref metrics, 0, dpi))

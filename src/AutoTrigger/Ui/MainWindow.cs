@@ -104,7 +104,7 @@ namespace AutoTrigger.Ui
                 Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(_tabs.KeepFocusOnSelected));
         }
 
-        private UIElement Footer(string version)
+        private Border Footer(string version)
         {
             var about = Ghost(Texts.About);
             about.Click += (s, e) => AboutClicked?.Invoke();

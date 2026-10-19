@@ -56,14 +56,14 @@ namespace AutoTrigger.Core.Platform
                         IntPtr byName = QueryInterface(IdGetDisplayIdByDisplayName);
                         if (init == IntPtr.Zero || color == IntPtr.Zero || byName == IntPtr.Zero)
                             return false;
-                        int status = ((InitializeFn)Marshal.GetDelegateForFunctionPointer(init, typeof(InitializeFn)))();
+                        int status = Marshal.GetDelegateForFunctionPointer<InitializeFn>(init)();
                         if (status != 0)
                         {
                             Log.Detailed($"NVIDIA API not ready (status {status})");
                             return false;
                         }
-                        _colorControl = (ColorControlFn)Marshal.GetDelegateForFunctionPointer(color, typeof(ColorControlFn));
-                        _getDisplayId = (GetDisplayIdFn)Marshal.GetDelegateForFunctionPointer(byName, typeof(GetDisplayIdFn));
+                        _colorControl = Marshal.GetDelegateForFunctionPointer<ColorControlFn>(color);
+                        _getDisplayId = Marshal.GetDelegateForFunctionPointer<GetDisplayIdFn>(byName);
                         _ready = true;
                     }
                     catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException || ex is BadImageFormatException)

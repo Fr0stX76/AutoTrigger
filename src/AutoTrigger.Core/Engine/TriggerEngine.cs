@@ -8,11 +8,13 @@ using AutoTrigger.Core.Model;
 
 namespace AutoTrigger.Core.Engine
 {
-    public sealed class TriggerEngine : IDisposable
+    public sealed partial class TriggerEngine : IDisposable
     {
         private const int MaxQueryAttempts = 3;
         private const int RestartCloseTimeoutMs = 15000;
         private const int RestartStartTimeoutMs = 30000;
+        private const int EmptyFrameChecks = 3;
+        private const int EmptyFrameCheckMs = 500;
 
         private readonly IProcessSystem _processes;
         private readonly IEngineScheduler _scheduler;
@@ -35,6 +37,7 @@ namespace AutoTrigger.Core.Engine
         private int _snapshotErrors;
         private AppState _focusApp;
         private AppState _lastStarted;
+        private int _emptyFrameChecks;
         private volatile EngineSnapshot _snapshot = EngineSnapshot.Empty;
 
         public TriggerEngine(AppSettings settings, IProcessSystem processes, IEngineScheduler scheduler,
@@ -189,6 +192,7 @@ namespace AutoTrigger.Core.Engine
             _pollTimer = null;
             _focusTimer?.Dispose();
             _focusTimer = null;
+            StopManualRuns();
             foreach (AppState app in _apps.Values)
             {
                 CancelRuns(app, true, "AutoTrigger is closing");
@@ -504,6 +508,7 @@ namespace AutoTrigger.Core.Engine
                     _focusTimer.Dispose();
                     Log.Detailed($"Focus changed again within {_settings.FocusStabilityMs} ms: previous change ignored");
                 }
+                _emptyFrameChecks = 0;
                 _focusTimer = _scheduler.Schedule(_settings.FocusStabilityMs, CheckFocus);
             });
         }
@@ -513,7 +518,15 @@ namespace AutoTrigger.Core.Engine
             _focusTimer = null;
             if (!_running || _paused)
                 return;
-            AppState app = ResolveForeground(true);
+            AppState app = ResolveForeground(true, out bool emptyFrame);
+            if (emptyFrame && _emptyFrameChecks < EmptyFrameChecks)
+            {
+                _emptyFrameChecks++;
+                Log.Detailed("Focus: Windows Store app frame without its app yet; checking again");
+                _focusTimer = _scheduler.Schedule(EmptyFrameCheckMs, CheckFocus);
+                return;
+            }
+            _emptyFrameChecks = 0;
             if (app == _focusApp)
                 return;
             AppState previous = _focusApp;
@@ -526,8 +539,11 @@ namespace AutoTrigger.Core.Engine
             Publish();
         }
 
-        private AppState ResolveForeground(bool pollIfUnknown)
+        private AppState ResolveForeground(bool pollIfUnknown) => ResolveForeground(pollIfUnknown, out _);
+
+        private AppState ResolveForeground(bool pollIfUnknown, out bool emptyFrame)
         {
+            emptyFrame = false;
             if (_foreground == null)
                 return null;
             int pid;
@@ -540,7 +556,12 @@ namespace AutoTrigger.Core.Engine
                 Log.Detailed("Cannot read the foreground window: " + ex.Message);
                 return null;
             }
-            if (pid == 0)
+            if (pid == ForegroundIds.EmptyFrame)
+            {
+                emptyFrame = true;
+                return null;
+            }
+            if (pid <= 0)
                 return null;
             if (pollIfUnknown && !_known.ContainsKey(pid))
                 Poll();
@@ -580,22 +601,24 @@ namespace AutoTrigger.Core.Engine
             if (kind == EventKind.Started && profile.RestartApp)
                 ReadLaunchArguments(app);
 
-            var run = new EventRun(_scheduler, _execute, app.Name, kind, profile, plan, r => RunFinished(app, r));
+            var run = new EventRun(_scheduler, _execute, $"{app.Name} / {EventRun.EventText(kind)}", reason, kind, profile, plan,
+                r => RunFinished(app, r));
             if (lifecycle)
                 app.LifeRun = run;
             else
                 app.FocusRun = run;
-            run.Start();
+            Begin(run, AppSource(app));
             Publish();
         }
 
-        private static void Cancel(ref EventRun run, string reason)
+        private void Cancel(ref EventRun run, string reason)
         {
             run?.Cancel(reason);
             run = null;
+            CheckWaiting();
         }
 
-        private static void CancelRuns(AppState app, bool all, string reason)
+        private void CancelRuns(AppState app, bool all, string reason)
         {
             Cancel(ref app.LifeRun, reason);
             if (all)
@@ -611,6 +634,7 @@ namespace AutoTrigger.Core.Engine
             if (run.Kind == EventKind.Started && run.Profile.RestartApp && !app.RestartDone
                 && IsFollowed(app) && !_paused && _running)
                 BeginRestart(app);
+            CheckWaiting();
         }
 
         private void ReadLaunchArguments(AppState app)

@@ -4,6 +4,8 @@ using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Media;
 using System.Windows.Threading;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Model;
@@ -14,11 +16,24 @@ namespace AutoTrigger.Ui
 {
     internal sealed class ApplicationsPage : Grid, IPage
     {
+        private const double NameColumn = 160;
+        private const double ProfileColumn = 205;
+        private const double FixedColumns = 44 + 16 + 24 + 24 + 150;
+        private const double TableChrome = 16 + 16 + 2 + 16;
+        private const double ComboChrome = 56;
+        private const double TextSize = 14;
+
         private readonly SettingsController _settings;
         private readonly IProcessSystem _processes;
         private readonly AppIcons _icons;
         private readonly Func<Window> _owner;
         private readonly StackPanel _rows = new StackPanel();
+        private readonly List<Grid> _rowGrids = new List<Grid>();
+        private readonly Grid _root;
+        private readonly Grid _headings;
+        private double _nameNeed = NameColumn;
+        private double _profileNeed = ProfileColumn;
+        private int _measuredVersion = -1;
         private readonly Dictionary<Guid, ListRow> _rowById = new Dictionary<Guid, ListRow>();
         private readonly TextBlock _count;
         private readonly UiTextBox _search;
@@ -37,9 +52,18 @@ namespace AutoTrigger.Ui
             _owner = owner;
             this.Bind(BackgroundProperty, Res.Layer);
             Margin = new Thickness(0);
-            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star) });
-            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            var root = new Grid { Margin = new Thickness(32, 24, 0, 24) };
+            var root = new Grid { Margin = new Thickness(32, 24, 32, 24) };
+            _root = root;
+            root.SizeChanged += (s, e) =>
+            {
+                if (e.WidthChanged)
+                    ApplyColumns();
+            };
+            Loaded += (s, e) =>
+            {
+                MeasureNeeds();
+                ApplyColumns();
+            };
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -66,6 +90,7 @@ namespace AutoTrigger.Ui
             table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             Grid headings = Columns();
+            _headings = headings;
             headings.Margin = new Thickness(16, 10, 16, 10);
             TextBlock appHeading = Kit.Caption(Texts.Application);
             Grid.SetColumnSpan(appHeading, 3);
@@ -91,6 +116,7 @@ namespace AutoTrigger.Ui
             Border card = Res.Card(table, new Thickness(0));
             card.Margin = new Thickness(0, 12, 0, 0);
             card.VerticalAlignment = VerticalAlignment.Top;
+            card.HorizontalAlignment = HorizontalAlignment.Left;
             Grid.SetRow(card, 2);
             root.Children.Add(card);
 
@@ -137,12 +163,52 @@ namespace AutoTrigger.Ui
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 160 });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(NameColumn) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 200 });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ProfileColumn) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
             return grid;
+        }
+
+        private void MeasureNeeds()
+        {
+            _nameNeed = Settings.Applications.Select(a => TextWidth(DisplayName(a))).DefaultIfEmpty(0).Max();
+            _nameNeed = Math.Max(NameColumn, _nameNeed);
+            double profiles = Kit.ProfileChoices(Settings).Select(p => TextWidth(p.Value)).DefaultIfEmpty(0).Max();
+            _profileNeed = Math.Max(ProfileColumn, profiles + ComboChrome);
+        }
+
+        private double TextWidth(string text)
+        {
+            var typeface = new Typeface(TextElement.GetFontFamily(this), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+            var formatted = new FormattedText(text ?? string.Empty, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+                typeface, TextSize, Brushes.Black, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            return Math.Ceiling(formatted.WidthIncludingTrailingWhitespace) + 2;
+        }
+
+        private void ApplyColumns()
+        {
+            double available = _root.ActualWidth - TableChrome - FixedColumns;
+            (double name, double profile) = FitColumns(_nameNeed, _profileNeed, available);
+            foreach (Grid grid in _rowGrids.Prepend(_headings))
+            {
+                grid.ColumnDefinitions[2].Width = new GridLength(name);
+                grid.ColumnDefinitions[4].Width = new GridLength(profile);
+            }
+        }
+
+        private static (double Name, double Profile) FitColumns(double name, double profile, double available)
+        {
+            if (available <= 0 || name + profile <= available)
+                return (name, profile);
+            double extraName = name - NameColumn;
+            double extraProfile = profile - ProfileColumn;
+            double room = available - NameColumn - ProfileColumn;
+            if (room <= 0 || extraName + extraProfile <= 0)
+                return (NameColumn, ProfileColumn);
+            double scale = room / (extraName + extraProfile);
+            return (NameColumn + extraName * scale, ProfileColumn + extraProfile * scale);
         }
 
         private string SearchText => _search?.Text?.Trim() ?? string.Empty;
@@ -162,6 +228,7 @@ namespace AutoTrigger.Ui
         {
             _shownVersion = _settings.Version;
             _rows.Children.Clear();
+            _rowGrids.Clear();
             _rowById.Clear();
             _count.Text = Settings.Applications.Count.ToString(CultureInfo.CurrentCulture);
             List<KeyValuePair<Guid, string>> profiles = Kit.ProfileChoices(Settings);
@@ -177,12 +244,19 @@ namespace AutoTrigger.Ui
                 none.Margin = new Thickness(12);
                 _rows.Children.Add(none);
             }
+            if (_measuredVersion != _settings.Version)
+            {
+                _measuredVersion = _settings.Version;
+                MeasureNeeds();
+            }
+            ApplyColumns();
             UpdateButtons();
         }
 
         private ListRow AppRow(AppEntry app, List<KeyValuePair<Guid, string>> profiles)
         {
             Grid grid = Columns();
+            _rowGrids.Add(grid);
             var icon = new AppIconBox(36, 6);
             icon.ShowInitials(app.Name);
             _icons.Get(app.Path, icon.ShowImage);

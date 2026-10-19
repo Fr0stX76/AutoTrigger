@@ -194,7 +194,7 @@ namespace AutoTrigger.Ui
                 _icons.Get(app.Path, image => { if (_shownApp == app.Id) _currentIcon.ShowImage(image); });
         }
 
-        private UIElement AppRow(AppEntry app)
+        private Border AppRow(AppEntry app)
         {
             var icon = new AppIconBox(36, 6);
             icon.ShowInitials(app.Name);

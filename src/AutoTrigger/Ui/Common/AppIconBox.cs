@@ -7,6 +7,8 @@ namespace AutoTrigger.Ui
 {
     internal sealed class AppIconBox : Grid
     {
+        private static readonly char[] WordSeparators = { ' ', '-', '_', '.' };
+
         private readonly Image _image;
         private readonly Border _tile;
         private readonly TextBlock _initials;
@@ -53,7 +55,7 @@ namespace AutoTrigger.Ui
 
         private static string Initials(string name)
         {
-            string[] words = (name ?? string.Empty).Split(new[] { ' ', '-', '_', '.' }, StringSplitOptions.RemoveEmptyEntries);
+            string[] words = (name ?? string.Empty).Split(WordSeparators, StringSplitOptions.RemoveEmptyEntries);
             if (words.Length == 0)
                 return "?";
             if (words.Length == 1)

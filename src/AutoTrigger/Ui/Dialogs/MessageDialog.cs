@@ -1,12 +1,5 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
-using FluentWindow = Wpf.Ui.Controls.FluentWindow;
-using UiButton = Wpf.Ui.Controls.Button;
-using UiControlAppearance = Wpf.Ui.Controls.ControlAppearance;
-using UiImageIcon = Wpf.Ui.Controls.ImageIcon;
-using UiTitleBar = Wpf.Ui.Controls.TitleBar;
-using UiWindowBackdropType = Wpf.Ui.Controls.WindowBackdropType;
-using UiWindowCornerPreference = Wpf.Ui.Controls.WindowCornerPreference;
 
 namespace AutoTrigger.Ui
 {
@@ -15,70 +8,39 @@ namespace AutoTrigger.Ui
         None,
         Primary,
         Secondary,
+        Extra,
     }
 
-    internal sealed class MessageDialog : FluentWindow
+    internal sealed class MessageDialog : DialogWindow
     {
         private DialogChoice _choice;
 
-        private MessageDialog(string title, string text, string primary, string secondary)
+        private MessageDialog(string title, string text, string primary, string secondary, string extra)
+            : base(title, title, 480)
         {
-            Title = title;
-            Width = 480;
-            MinWidth = 0;
-            MinHeight = 0;
-            ResizeMode = ResizeMode.NoResize;
-            ExtendsContentIntoTitleBar = true;
-            WindowBackdropType = UiWindowBackdropType.Mica;
-            WindowCornerPreference = UiWindowCornerPreference.Round;
-            Icon = AppImages.WindowIcon;
-
-            var root = new Grid();
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-            var titleBar = new UiTitleBar
-            {
-                Title = title,
-                ShowMaximize = false,
-                ShowMinimize = false,
-                CanMaximize = false,
-                Icon = new UiImageIcon { Source = AppImages.SmallIcon, Width = 16, Height = 16 },
-            };
-            root.Children.Add(titleBar);
-
             var body = Res.Text(text, 14);
             body.TextWrapping = TextWrapping.Wrap;
             body.TextTrimming = TextTrimming.None;
-            body.Margin = new Thickness(24, 12, 24, 24);
-            Grid.SetRow(body, 1);
-            root.Children.Add(body);
+            SetBody(body);
 
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            if (!string.IsNullOrEmpty(secondary))
+            UIElement left = null;
+            if (!string.IsNullOrEmpty(extra))
             {
-                var second = new UiButton { Content = secondary, MinWidth = 96, Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
-                second.Click += (s, e) => Finish(DialogChoice.Secondary);
-                buttons.Children.Add(second);
+                var third = FooterButton(extra);
+                third.Click += (s, e) => Finish(DialogChoice.Extra);
+                left = third;
             }
-            var first = new UiButton { Content = primary, MinWidth = 96, Appearance = UiControlAppearance.Primary, IsDefault = true };
+            var first = FooterButton(primary, true);
             first.Click += (s, e) => Finish(DialogChoice.Primary);
-            buttons.Children.Add(first);
-
-            var footer = new Border
+            if (string.IsNullOrEmpty(secondary))
             {
-                Padding = new Thickness(24, 16, 24, 16),
-                BorderThickness = new Thickness(0, 1, 0, 0),
-                Child = buttons,
-            };
-            footer.SetResourceReference(Border.BackgroundProperty, Res.Layer);
-            footer.SetResourceReference(Border.BorderBrushProperty, Res.Divider);
-            Grid.SetRow(footer, 2);
-            root.Children.Add(footer);
-
-            Content = root;
-            Loaded += (s, e) => DialogFit.Fit(this, true);
+                SetFooter(left, first);
+                return;
+            }
+            var second = FooterButton(secondary);
+            second.IsCancel = true;
+            second.Click += (s, e) => Finish(DialogChoice.Secondary);
+            SetFooter(left, second, first);
         }
 
         private void Finish(DialogChoice choice)
@@ -87,22 +49,11 @@ namespace AutoTrigger.Ui
             Close();
         }
 
-        public static DialogChoice Show(Window owner, string title, string text, string primary, string secondary = null)
+        public static DialogChoice Show(Window owner, string title, string text, string primary, string secondary = null,
+            string extra = null)
         {
-            var dialog = new MessageDialog(title, text, primary, secondary);
-            if (owner != null && owner.IsVisible && owner.WindowState != WindowState.Minimized)
-            {
-                dialog.Owner = owner;
-                dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-                dialog.ShowInTaskbar = false;
-            }
-            else
-            {
-                dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-                dialog.ShowInTaskbar = true;
-            }
-            DialogFit.Fit(dialog, false);
-            dialog.ShowDialog();
+            var dialog = new MessageDialog(title, text, primary, secondary, extra);
+            dialog.ShowOver(owner);
             return dialog._choice;
         }
     }

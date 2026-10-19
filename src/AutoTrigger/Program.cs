@@ -7,17 +7,22 @@ namespace AutoTrigger
     internal static class Program
     {
         [STAThread]
-        private static int Main()
+        private static int Main(string[] args)
         {
             UseEnglishForSystemTexts();
+            Command command = Command.Parse(args);
+            if (command.Kind == CommandKind.Invalid)
+                return 2;
             using (SingleInstance instance = SingleInstance.TryAcquire())
             {
                 if (instance == null)
                 {
+                    if (command.Kind != CommandKind.None)
+                        return CommandChannel.Send(command);
                     SingleInstance.ActivateRunningInstance();
                     return 0;
                 }
-                var app = new App(instance);
+                var app = new App(instance, command);
                 return app.Run();
             }
         }

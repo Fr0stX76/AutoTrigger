@@ -57,7 +57,7 @@ namespace AutoTrigger.Ui
             StrokeLineJoin = PenLineJoin.Round,
         };
 
-        private static FrameworkElement Frame(Path path, double size)
+        private static Viewbox Frame(Path path, double size)
         {
             var canvas = new Canvas { Width = 20, Height = 20 };
             canvas.Children.Add(path);
@@ -267,6 +267,7 @@ namespace AutoTrigger.Ui
         public static ComboBox Combo<T>(IEnumerable<KeyValuePair<T, string>> items, T selected, Action<T> changed, double minWidth = 220)
         {
             var combo = new ComboBox { MinWidth = minWidth };
+            DropDowns.Attach(combo);
             T current = selected;
             foreach (KeyValuePair<T, string> item in items)
             {
@@ -288,35 +289,14 @@ namespace AutoTrigger.Ui
 
         public static ComboBox WithScrollBar(ComboBox combo)
         {
-            combo.MaxDropDownHeight = 360;
             ScrollViewer.SetVerticalScrollBarVisibility(combo, ScrollBarVisibility.Visible);
-            combo.DropDownOpened += (s, e) => combo.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, new Action(() =>
-            {
-                if (combo.Template?.FindName("PART_Popup", combo) is System.Windows.Controls.Primitives.Popup popup && popup.Child != null)
-                {
-                    foreach (ScrollViewer viewer in Descendants<ScrollViewer>(popup.Child))
-                        viewer.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
-                }
-            }));
             return combo;
-        }
-
-        private static IEnumerable<T> Descendants<T>(DependencyObject root) where T : DependencyObject
-        {
-            int count = VisualTreeHelper.GetChildrenCount(root);
-            for (int i = 0; i < count; i++)
-            {
-                DependencyObject child = VisualTreeHelper.GetChild(root, i);
-                if (child is T match)
-                    yield return match;
-                foreach (T deeper in Descendants<T>(child))
-                    yield return deeper;
-            }
         }
 
         public static ComboBox LazyCombo<T>(IReadOnlyList<KeyValuePair<T, string>> items, T selected, Action<T> changed, double minWidth = 220)
         {
             var combo = new ComboBox { MinWidth = minWidth };
+            DropDowns.Attach(combo);
             T current = selected;
             bool filled = false;
             bool filling = false;

@@ -31,6 +31,10 @@ namespace AutoTrigger.Core.Displays
 
         public override bool Equals(object obj) => obj is RefreshRate r && Equals(r);
 
+        public static bool operator ==(RefreshRate left, RefreshRate right) => left.Equals(right);
+
+        public static bool operator !=(RefreshRate left, RefreshRate right) => !left.Equals(right);
+
         public override int GetHashCode() => (int)(Numerator * 397 ^ Denominator);
 
         public override string ToString()
@@ -84,6 +88,10 @@ namespace AutoTrigger.Core.Displays
         public bool Equals(PixelSize other) => Width == other.Width && Height == other.Height;
 
         public override bool Equals(object obj) => obj is PixelSize s && Equals(s);
+
+        public static bool operator ==(PixelSize left, PixelSize right) => left.Equals(right);
+
+        public static bool operator !=(PixelSize left, PixelSize right) => !left.Equals(right);
 
         public override int GetHashCode() => Width * 397 ^ Height;
 

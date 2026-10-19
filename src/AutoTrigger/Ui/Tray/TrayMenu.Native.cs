@@ -266,7 +266,7 @@ namespace AutoTrigger.Ui
             public static extern bool IsWindowVisible(IntPtr hwnd);
 
             [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetClassNameW")]
-            public static extern int GetClassName(IntPtr hwnd, System.Text.StringBuilder name, int size);
+            public static extern int GetClassName(IntPtr hwnd, [Out] char[] name, int size);
 
             [DllImport("user32.dll")]
             [return: MarshalAs(UnmanagedType.Bool)]

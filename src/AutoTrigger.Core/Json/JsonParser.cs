@@ -210,7 +210,9 @@ namespace AutoTrigger.Core.Json
                     _pos++;
             }
             string text = _text.Substring(start, _pos - start);
-            double value = double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture);
+            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
+                || double.IsInfinity(value) || double.IsNaN(value))
+                throw Error("Number out of range");
             return JsonValue.FromNumberText(text, value);
         }
 

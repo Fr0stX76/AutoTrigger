@@ -209,7 +209,7 @@ namespace AutoTrigger.Core.Model
                         return ReadDisplayAction(action, profileName);
 
                     case "AudioDeviceAction":
-                        return new AudioAction
+                        return new WindowsSettingsAction
                         {
                             PlaybackDevice = ChangedDevice(action, "ChangePlaybackDevice", "PlaybackDeviceID"),
                             RecordDevice = ChangedDevice(action, "ChangeRecordDevice", "RecordDeviceID"),

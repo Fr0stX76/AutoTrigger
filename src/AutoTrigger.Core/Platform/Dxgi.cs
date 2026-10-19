@@ -43,7 +43,7 @@ namespace AutoTrigger.Core.Platform
             Guid iid = IidFactory1;
             int hr = CreateDXGIFactory1(ref iid, out IntPtr factory);
             if (hr < 0)
-                throw new COMException("DXGI is not available", hr);
+                throw new InvalidOperationException($"DXGI is not available (0x{hr:X8})");
             try
             {
                 for (uint a = 0; ; a++)
@@ -52,7 +52,7 @@ namespace AutoTrigger.Core.Platform
                     if (hr == DxgiErrorNotFound)
                         break;
                     if (hr < 0)
-                        throw new COMException("DXGI adapters cannot be read", hr);
+                        throw new InvalidOperationException($"DXGI adapters cannot be read (0x{hr:X8})");
                     try
                     {
                         for (uint o = 0; ; o++)
@@ -149,7 +149,7 @@ namespace AutoTrigger.Core.Platform
         {
             IntPtr table = Marshal.ReadIntPtr(instance);
             IntPtr function = Marshal.ReadIntPtr(table, slot * IntPtr.Size);
-            return (T)(object)Marshal.GetDelegateForFunctionPointer(function, typeof(T));
+            return Marshal.GetDelegateForFunctionPointer<T>(function);
         }
 
         private static void Release(IntPtr instance)

@@ -81,7 +81,7 @@ namespace AutoTrigger.Ui
             return monitor.HdrSupported ? Texts.OffSupported : Texts.NotSupported;
         }
 
-        private UIElement Card(DisplayEntry entry, MonitorInfo monitor)
+        private Border Card(DisplayEntry entry, MonitorInfo monitor)
         {
             string name = CardName(entry, monitor);
             var content = new Grid();
@@ -118,7 +118,7 @@ namespace AutoTrigger.Ui
                 return monitor.FriendlyName;
             if (!string.IsNullOrEmpty(entry.FriendlyName))
                 return entry.FriendlyName;
-            return entry.LegacyUid >= 0 ? string.Format(Texts.ImportedDisplay, entry.LegacyUid) : Texts.Display;
+            return entry.LegacyUid >= 0 ? Texts.Format(Texts.ImportedDisplay, entry.LegacyUid) : Texts.Display;
         }
 
         private Border CardHeader(DisplayEntry entry, string name)
@@ -154,7 +154,7 @@ namespace AutoTrigger.Ui
             return border;
         }
 
-        private Grid CardDetails(DisplayEntry entry, MonitorInfo monitor)
+        private static Grid CardDetails(DisplayEntry entry, MonitorInfo monitor)
         {
             Grid details = Kit.PairGrid(150, 20);
             details.Margin = new Thickness(20, 14, 20, 14);
@@ -235,7 +235,7 @@ namespace AutoTrigger.Ui
         private static TextBlock Value(string text) =>
             string.IsNullOrEmpty(text) ? Res.Text("—") : Res.Text(text);
 
-        private static UIElement Dot(bool on, string text)
+        private static StackPanel Dot(bool on, string text)
         {
             var panel = new StackPanel { Orientation = Orientation.Horizontal };
             var dot = new Ellipse

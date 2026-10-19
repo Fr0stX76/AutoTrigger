@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -17,6 +18,9 @@ namespace AutoTrigger.Ui
 {
     internal sealed class AppIcons : IDisposable
     {
+        private const string CacheSuffix = "-3.png";
+        private const string OldCacheSuffix = "-2.png";
+
         private readonly string _cacheDir;
         private readonly Dispatcher _ui;
         private readonly Dictionary<string, ImageSource> _memory = new Dictionary<string, ImageSource>(StringComparer.OrdinalIgnoreCase);
@@ -62,6 +66,7 @@ namespace AutoTrigger.Ui
 
         private void WorkerLoop()
         {
+            RemoveOldCache();
             foreach (string path in _queue.GetConsumingEnumerable())
             {
                 try
@@ -170,7 +175,7 @@ namespace AutoTrigger.Ui
         private static int SystemIconIndex(string exePath)
         {
             var info = new NativeUi.SHFILEINFOW();
-            uint size = (uint)Marshal.SizeOf(typeof(NativeUi.SHFILEINFOW));
+            uint size = (uint)Marshal.SizeOf<NativeUi.SHFILEINFOW>();
             IntPtr ok;
             if (exePath == null)
             {
@@ -184,7 +189,7 @@ namespace AutoTrigger.Ui
             return ok == IntPtr.Zero ? -1 : info.iIcon;
         }
 
-        private static BitmapSource FromImageList(int which, int index)
+        private static FormatConvertedBitmap FromImageList(int which, int index)
         {
             Guid iid = NativeUi.IID_IImageList;
             if (NativeUi.SHGetImageList(which, ref iid, out IntPtr list) != 0 || list == IntPtr.Zero)
@@ -268,13 +273,28 @@ namespace AutoTrigger.Ui
 
         private string CacheFile(string exePath)
         {
-            using (var sha = SHA1.Create())
+            using (var sha = SHA256.Create())
             {
                 byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(exePath.ToLowerInvariant()));
                 var sb = new StringBuilder();
-                for (int i = 0; i < 10; i++)
-                    sb.Append(hash[i].ToString("x2"));
-                return Path.Combine(_cacheDir, sb + "-2.png");
+                for (int i = 0; i < 16; i++)
+                    sb.Append(hash[i].ToString("x2", CultureInfo.InvariantCulture));
+                return Path.Combine(_cacheDir, sb + CacheSuffix);
+            }
+        }
+
+        private void RemoveOldCache()
+        {
+            try
+            {
+                if (!Directory.Exists(_cacheDir))
+                    return;
+                foreach (string old in Directory.GetFiles(_cacheDir, "*" + OldCacheSuffix))
+                    File.Delete(old);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Log.Detailed("Old icon cache files cannot be removed: " + ex.Message);
             }
         }
 
@@ -288,7 +308,7 @@ namespace AutoTrigger.Ui
             File.Move(temp, file);
         }
 
-        private static ImageSource Decode(string file)
+        private static BitmapImage Decode(string file)
         {
             try
             {
@@ -300,7 +320,7 @@ namespace AutoTrigger.Ui
             }
         }
 
-        private static ImageSource Decode(byte[] png)
+        private static BitmapImage Decode(byte[] png)
         {
             try
             {

@@ -9,6 +9,8 @@ namespace AutoTrigger.Core.Model
 {
     public static class SettingsJson
     {
+        private const double MaxWindowSize = 20000;
+
         public static AppSettings Read(JsonValue root, List<string> warnings)
         {
             if (root == null || root.Kind != JsonKind.Object)
@@ -42,8 +44,8 @@ namespace AutoTrigger.Core.Model
             JsonValue window = root["window"];
             if (window != null && window.Kind == JsonKind.Object)
             {
-                settings.WindowWidth = Num(window, "width", 0);
-                settings.WindowHeight = Num(window, "height", 0);
+                settings.WindowWidth = Math.Max(0, Math.Min(MaxWindowSize, Num(window, "width", 0)));
+                settings.WindowHeight = Math.Max(0, Math.Min(MaxWindowSize, Num(window, "height", 0)));
             }
             return settings;
         }
@@ -77,6 +79,7 @@ namespace AutoTrigger.Core.Model
                     Id = GuidOrNew(item, "id"),
                     Name = Str(item, "name", string.Empty),
                     RestartApp = Bool(item, "restartApp", false),
+                    Shortcut = ReadShortcut(item),
                 };
                 ReadActions(item, "onStart", profile.OnStart, profile.Name, warnings);
                 ReadActions(item, "onClose", profile.OnClose, profile.Name, warnings);
@@ -178,6 +181,7 @@ namespace AutoTrigger.Core.Model
                     .Set("id", profile.Id.ToString("D"))
                     .Set("name", profile.Name ?? string.Empty)
                     .Set("restartApp", profile.RestartApp)
+                    .Set("shortcut", WriteShortcut(profile.Shortcut))
                     .Set("onStart", WriteActions(profile.OnStart))
                     .Set("onClose", WriteActions(profile.OnClose))
                     .Set("onFocus", WriteActions(profile.OnFocus))
@@ -244,30 +248,14 @@ namespace AutoTrigger.Core.Model
                 case DisplayAction.TypeName:
                     action = ReadDisplayAction(json);
                     break;
-                case AudioAction.TypeName:
-                    action = new AudioAction
-                    {
-                        PlaybackDevice = Str(json, "playbackDevice", string.Empty),
-                        RecordDevice = Str(json, "recordDevice", string.Empty),
-                        PlaybackName = Str(json, "playbackName", string.Empty),
-                        RecordName = Str(json, "recordName", string.Empty),
-                    };
-                    break;
-                case PowerPlanAction.TypeName:
-                    action = new PowerPlanAction
-                    {
-                        PlanId = GuidOf(json, "planId"),
-                        PlanName = Str(json, "planName", string.Empty),
-                    };
+                case WindowsSettingsAction.TypeName:
+                case WindowsSettingsAction.AudioTypeName:
+                case WindowsSettingsAction.PowerPlanTypeName:
+                case WindowsSettingsAction.ScreenSaverTypeName:
+                    action = ReadWindowsSettings(json, type);
                     break;
                 case PressHotkeyAction.TypeName:
-                    action = new PressHotkeyAction
-                    {
-                        Ctrl = Bool(json, "ctrl", false),
-                        Alt = Bool(json, "alt", false),
-                        Shift = Bool(json, "shift", false),
-                        Key = ReadKey(json),
-                    };
+                    action = new PressHotkeyAction { Keys = ReadKeys(json) };
                     break;
                 default:
                     return new UnknownAction(type, json) { DelayMs = (int)Num(json, "delayMs", 0) };
@@ -276,11 +264,67 @@ namespace AutoTrigger.Core.Model
             return action;
         }
 
-        private static int ReadKey(JsonValue json)
+        private static WindowsSettingsAction ReadWindowsSettings(JsonValue json, string type)
+        {
+            return new WindowsSettingsAction
+            {
+                PlaybackDevice = Str(json, "playbackDevice", string.Empty),
+                RecordDevice = Str(json, "recordDevice", string.Empty),
+                PlaybackName = Str(json, "playbackName", string.Empty),
+                RecordName = Str(json, "recordName", string.Empty),
+                PlanId = GuidOf(json, "planId"),
+                PlanName = Str(json, "planName", string.Empty),
+                ScreenSaverOn = type == WindowsSettingsAction.ScreenSaverTypeName
+                    ? Bool(json, "on", true)
+                    : ParseOnOff(Str(json, "screenSaver", "unchanged")),
+            };
+        }
+
+        private static string OnOffText(bool? on) => on == null ? "unchanged" : on.Value ? "on" : "off";
+
+        private static bool? ParseOnOff(string text)
+        {
+            switch ((text ?? string.Empty).ToLowerInvariant())
+            {
+                case "on": return true;
+                case "off": return false;
+                default: return null;
+            }
+        }
+
+        private static KeyCombination ReadKeys(JsonValue json)
         {
             double key = Num(json, "key", 0);
-            return key > 0 && key < 256 ? (int)key : 0;
+            return new KeyCombination
+            {
+                Ctrl = Bool(json, "ctrl", false),
+                Alt = Bool(json, "alt", false),
+                Shift = Bool(json, "shift", false),
+                Key = key > 0 && key < 256 ? (int)key : 0,
+            };
         }
+
+        private static JsonValue WriteKeys(JsonValue json, KeyCombination keys)
+        {
+            keys = keys ?? new KeyCombination();
+            return json.Set("keys", KeyNames.Combination(keys))
+                .Set("ctrl", keys.Ctrl)
+                .Set("alt", keys.Alt)
+                .Set("shift", keys.Shift)
+                .Set("key", keys.Key);
+        }
+
+        private static KeyCombination ReadShortcut(JsonValue profile)
+        {
+            JsonValue shortcut = profile["shortcut"];
+            if (shortcut == null || shortcut.Kind != JsonKind.Object)
+                return null;
+            KeyCombination keys = ReadKeys(shortcut);
+            return keys.IsSet ? keys : null;
+        }
+
+        private static JsonValue WriteShortcut(KeyCombination keys) =>
+            keys == null || !keys.IsSet ? JsonValue.Null : WriteKeys(JsonValue.NewObject(), keys);
 
         private static DisplayAction ReadDisplayAction(JsonValue json)
         {
@@ -370,22 +414,17 @@ namespace AutoTrigger.Core.Model
                         .Set("colorFormat", display.ColorFormat ?? string.Empty)
                         .Set("dynamicRange", display.DynamicRange ?? string.Empty);
                     break;
-                case AudioAction audio:
-                    json.Set("playbackDevice", audio.PlaybackDevice ?? string.Empty)
-                        .Set("recordDevice", audio.RecordDevice ?? string.Empty)
-                        .Set("playbackName", audio.PlaybackName ?? string.Empty)
-                        .Set("recordName", audio.RecordName ?? string.Empty);
+                case WindowsSettingsAction windows:
+                    json.Set("playbackDevice", windows.PlaybackDevice ?? string.Empty)
+                        .Set("recordDevice", windows.RecordDevice ?? string.Empty)
+                        .Set("playbackName", windows.PlaybackName ?? string.Empty)
+                        .Set("recordName", windows.RecordName ?? string.Empty)
+                        .Set("planId", GuidValue(windows.PlanId))
+                        .Set("planName", windows.PlanName ?? string.Empty)
+                        .Set("screenSaver", OnOffText(windows.ScreenSaverOn));
                     break;
-                case PowerPlanAction plan:
-                    json.Set("planId", GuidValue(plan.PlanId))
-                        .Set("planName", plan.PlanName ?? string.Empty);
-                    break;
-                case PressHotkeyAction keys:
-                    json.Set("keys", KeyNames.Combination(keys))
-                        .Set("ctrl", keys.Ctrl)
-                        .Set("alt", keys.Alt)
-                        .Set("shift", keys.Shift)
-                        .Set("key", keys.Key);
+                case PressHotkeyAction hotkey:
+                    WriteKeys(json, hotkey.Keys);
                     break;
             }
             return json;
@@ -492,7 +531,7 @@ namespace AutoTrigger.Core.Model
         private static IEnumerable<JsonValue> Array(JsonValue obj, string key)
         {
             JsonValue value = obj[key];
-            return value != null && value.Kind == JsonKind.Array ? value.Items : new JsonValue[0];
+            return value != null && value.Kind == JsonKind.Array ? value.Items : System.Array.Empty<JsonValue>();
         }
 
         private static string Str(JsonValue obj, string key, string fallback)

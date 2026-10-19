@@ -4,7 +4,6 @@ using System.Globalization;
 using System.IO;
 using AutoTrigger.Core.Displays;
 using AutoTrigger.Core.Model;
-using AutoTrigger.Core.Platform;
 
 namespace AutoTrigger.Ui
 {
@@ -31,9 +30,8 @@ namespace AutoTrigger.Ui
                 case CloseProgramAction _: return Texts.TypeCloseProgram;
                 case IncludeProfileAction _: return Texts.TypeReferenceProfile;
                 case DisplayAction _: return Texts.TypeDisplay;
-                case AudioAction _: return Texts.TypeAudio;
-                case PowerPlanAction _: return Texts.TypePowerPlan;
-                case PressHotkeyAction _: return Texts.TypePressHotkey;
+                case WindowsSettingsAction _: return Texts.TypeWindowsSettings;
+                case PressHotkeyAction _: return Texts.TypeHotkey;
                 default: return Texts.TypeUnknown;
             }
         }
@@ -50,12 +48,10 @@ namespace AutoTrigger.Ui
                     return ReferenceName(settings.FindProfile(include.ProfileId));
                 case DisplayAction display:
                     return DisplaySummary(display, settings);
-                case AudioAction audio:
-                    return AudioSummary(audio);
-                case PowerPlanAction plan:
-                    return PlanName(plan);
-                case PressHotkeyAction keys:
-                    return HotkeyText(keys);
+                case WindowsSettingsAction windows:
+                    return WindowsSummary(windows);
+                case PressHotkeyAction hotkey:
+                    return HotkeyText(hotkey.Keys);
                 case UnknownAction unknown:
                     return unknown.TypeName;
                 default:
@@ -80,32 +76,29 @@ namespace AutoTrigger.Ui
                     return close.Target;
                 case DisplayAction display:
                     return DisplaySummary(display, settings);
-                case AudioAction audio:
-                    return AudioSummary(audio);
-                case PowerPlanAction plan:
-                    return PlanName(plan);
-                case PressHotkeyAction keys:
-                    return HotkeyText(keys);
+                case WindowsSettingsAction windows:
+                    return WindowsSummary(windows);
+                case PressHotkeyAction hotkey:
+                    return HotkeyText(hotkey.Keys);
                 default:
                     return null;
             }
         }
 
-        public static string HotkeyText(PressHotkeyAction keys) =>
-            keys.Key == 0 ? Texts.NoHotkey : KeyNames.Combination(keys, WindowsKeyboard.LayoutName);
+        public static string HotkeyText(KeyCombination keys) =>
+            keys == null || !keys.IsSet ? Texts.NoHotkey : KeyNames.Readable(keys);
 
-        private static string PlanName(PowerPlanAction plan) =>
-            !string.IsNullOrWhiteSpace(plan.PlanName) ? plan.PlanName
-            : plan.PlanId != Guid.Empty ? plan.PlanId.ToString("D")
-            : Texts.NoChange;
-
-        private static string AudioSummary(AudioAction audio)
+        private static string WindowsSummary(WindowsSettingsAction windows)
         {
             var parts = new List<string>();
-            if (!string.IsNullOrEmpty(audio.PlaybackDevice))
-                parts.Add(string.IsNullOrWhiteSpace(audio.PlaybackName) ? Texts.Playback : audio.PlaybackName);
-            if (!string.IsNullOrEmpty(audio.RecordDevice))
-                parts.Add(string.IsNullOrWhiteSpace(audio.RecordName) ? Texts.Recording : audio.RecordName);
+            if (!string.IsNullOrWhiteSpace(windows.PlaybackDevice))
+                parts.Add(string.IsNullOrWhiteSpace(windows.PlaybackName) ? Texts.AudioOutput : windows.PlaybackName);
+            if (!string.IsNullOrWhiteSpace(windows.RecordDevice))
+                parts.Add(string.IsNullOrWhiteSpace(windows.RecordName) ? Texts.AudioInput : windows.RecordName);
+            if (windows.ChangesPowerPlan)
+                parts.Add(string.IsNullOrWhiteSpace(windows.PlanName) ? windows.PlanId.ToString("D") : windows.PlanName);
+            if (windows.ScreenSaverOn.HasValue)
+                parts.Add(windows.ScreenSaverOn.Value ? Texts.ScreenSaverOn : Texts.ScreenSaverOff);
             return parts.Count == 0 ? Texts.NoChange : string.Join(" · ", parts);
         }
 
@@ -121,7 +114,7 @@ namespace AutoTrigger.Ui
                 DisplayEntry entry = settings.Displays.Find(x => x.Id == d.DisplayId);
                 parts.Add(entry == null ? Texts.MissingDisplay
                     : !string.IsNullOrEmpty(entry.FriendlyName) ? entry.FriendlyName
-                    : entry.LegacyUid >= 0 ? string.Format(Texts.ImportedDisplay, entry.LegacyUid) : Texts.Display);
+                    : entry.LegacyUid >= 0 ? Texts.Format(Texts.ImportedDisplay, entry.LegacyUid) : Texts.Display);
             }
             if (d.Hdr == HdrChange.On)
                 parts.Add("HDR on");
@@ -157,7 +150,7 @@ namespace AutoTrigger.Ui
         {
             if (count == 0)
                 return Texts.NoActions;
-            return count == 1 ? Texts.OneAction : string.Format(Texts.ManyActions, count);
+            return count == 1 ? Texts.OneAction : Texts.Format(Texts.ManyActions, count);
         }
 
         private static string SafeFileName(string path)

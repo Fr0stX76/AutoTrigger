@@ -72,7 +72,7 @@ namespace AutoTrigger.Ui
         {
             var id = new NativeUi.NOTIFYICONIDENTIFIER
             {
-                cbSize = (uint)Marshal.SizeOf(typeof(NativeUi.NOTIFYICONIDENTIFIER)),
+                cbSize = (uint)Marshal.SizeOf<NativeUi.NOTIFYICONIDENTIFIER>(),
                 hWnd = _window.Handle,
                 uID = IconId,
             };
@@ -89,7 +89,7 @@ namespace AutoTrigger.Ui
 
         public static TaskbarEdge GetTaskbarEdge()
         {
-            var data = new NativeUi.APPBARDATA { cbSize = (uint)Marshal.SizeOf(typeof(NativeUi.APPBARDATA)) };
+            var data = new NativeUi.APPBARDATA { cbSize = (uint)Marshal.SizeOf<NativeUi.APPBARDATA>() };
             if (NativeUi.SHAppBarMessage(NativeUi.ABM_GETTASKBARPOS, ref data) == UIntPtr.Zero)
                 return TaskbarEdge.Bottom;
             switch (data.uEdge)
@@ -105,7 +105,7 @@ namespace AutoTrigger.Ui
         {
             return new NativeUi.NOTIFYICONDATAW
             {
-                cbSize = (uint)Marshal.SizeOf(typeof(NativeUi.NOTIFYICONDATAW)),
+                cbSize = (uint)Marshal.SizeOf<NativeUi.NOTIFYICONDATAW>(),
                 hWnd = _window.Handle,
                 uID = IconId,
                 uFlags = flags,

@@ -14,17 +14,20 @@ namespace AutoTrigger.Core.Engine
         private readonly Func<ProfileAction, Task<ActionOutcome>> _execute;
         private readonly Action<EventRun> _onFinished;
         private readonly List<PlannedAction> _plan;
-        private readonly long _t0;
         private readonly string _prefix;
 
+        private long _t0;
         private int _next;
         private long _previousStart;
         private PlannedAction _running;
         private IDisposable _timer;
         private IDisposable _holdCapTimer;
+        private bool _started;
+        private bool _holding;
+        private bool _fast;
 
-        public EventRun(IEngineScheduler scheduler, Func<ProfileAction, Task<ActionOutcome>> execute, string appName,
-            EventKind kind, Profile profile, List<PlannedAction> plan, Action<EventRun> onFinished)
+        public EventRun(IEngineScheduler scheduler, Func<ProfileAction, Task<ActionOutcome>> execute, string source,
+            string trigger, EventKind kind, Profile profile, List<PlannedAction> plan, Action<EventRun> onFinished)
         {
             _scheduler = scheduler;
             _execute = execute;
@@ -32,14 +35,17 @@ namespace AutoTrigger.Core.Engine
             _plan = plan;
             Kind = kind;
             Profile = profile;
-            _t0 = scheduler.NowMs;
-            _previousStart = _t0;
-            _prefix = $"[{appName} / {EventText(kind)}]";
+            Trigger = trigger;
+            _prefix = $"[{source}]";
         }
 
         public EventKind Kind { get; }
 
         public Profile Profile { get; }
+
+        public string Trigger { get; }
+
+        public bool HasActions => _plan.Count > 0;
 
         public bool IsCancelled { get; private set; }
 
@@ -56,7 +62,36 @@ namespace AutoTrigger.Core.Engine
             }
         }
 
-        public void Start() => Advance();
+        public void Start()
+        {
+            if (_started)
+                return;
+            _started = true;
+            _t0 = _scheduler.NowMs;
+            _previousStart = _t0;
+            Advance();
+        }
+
+        public void FastTrack(string reason)
+        {
+            if (IsCancelled || IsFinished || _fast)
+                return;
+            _fast = true;
+            Log.Info($"{_prefix} fast-tracked: {reason}");
+            if (!_started)
+                return;
+            if (_holding)
+            {
+                ReleaseHold(_running, 0, true);
+                return;
+            }
+            if (_timer != null)
+            {
+                _timer.Dispose();
+                _timer = null;
+                Advance();
+            }
+        }
 
         public void Cancel(string reason)
         {
@@ -68,6 +103,7 @@ namespace AutoTrigger.Core.Engine
             _holdCapTimer?.Dispose();
             _holdCapTimer = null;
             _running = null;
+            _holding = false;
             for (int i = _next; i < _plan.Count; i++)
                 Log.Info($"{_prefix} {Describe(_plan[i])}: cancelled ({reason})");
             _next = _plan.Count;
@@ -76,7 +112,7 @@ namespace AutoTrigger.Core.Engine
 
         private void Advance()
         {
-            if (IsCancelled || IsFinished || _running != null)
+            if (IsCancelled || IsFinished || !_started || _running != null)
                 return;
             if (_next >= _plan.Count)
             {
@@ -85,8 +121,8 @@ namespace AutoTrigger.Core.Engine
             }
 
             PlannedAction planned = _plan[_next];
-            long due = _previousStart + planned.DelayMs;
             long now = _scheduler.NowMs;
+            long due = _fast ? now : _previousStart + planned.DelayMs;
             if (due > now)
             {
                 _timer?.Dispose();
@@ -111,8 +147,8 @@ namespace AutoTrigger.Core.Engine
             _running = planned;
             _previousStart = now;
 
-            if (planned.Action is RunProgramAction run && run.HoldNext)
-                _holdCapTimer = _scheduler.Schedule(run.HoldCapSec * 1000, () => ReleaseHold(planned, run.HoldCapSec));
+            if (planned.Action is RunProgramAction run && run.HoldNext && !_fast)
+                _holdCapTimer = _scheduler.Schedule(run.HoldCapSec * 1000, () => ReleaseHold(planned, run.HoldCapSec, false));
 
             var stopwatch = Stopwatch.StartNew();
             Task<ActionOutcome> task;
@@ -157,35 +193,44 @@ namespace AutoTrigger.Core.Engine
             if (_running != planned)
                 return;
 
-            if (planned.Action is RunProgramAction run && run.HoldNext)
+            if (planned.Action is RunProgramAction run && run.HoldNext && !_fast)
             {
                 Task exited = outcome.Result == ActionResult.Succeeded ? outcome.ProgramExited : null;
                 if (exited == null)
                 {
                     if (outcome.Result == ActionResult.Succeeded)
                         Log.Warning($"{_prefix} {Describe(planned)}: no process to wait for; the next actions are not held");
-                    ReleaseHold(planned, 0);
+                    ReleaseHold(planned, 0, false);
                 }
                 else if (exited.IsCompleted)
-                    ReleaseHold(planned, 0);
+                    ReleaseHold(planned, 0, false);
                 else
-                    exited.ContinueWith(_ => _scheduler.Post(() => ReleaseHold(planned, 0)),
+                {
+                    _holding = true;
+                    exited.ContinueWith(_ => _scheduler.Post(() => ReleaseHold(planned, 0, false)),
                         CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                }
                 return;
             }
+
+            _holdCapTimer?.Dispose();
+            _holdCapTimer = null;
 
             _running = null;
             Advance();
         }
 
-        private void ReleaseHold(PlannedAction planned, int capSec)
+        private void ReleaseHold(PlannedAction planned, int capSec, bool fastTracked)
         {
-            if (_running != planned)
+            if (planned == null || _running != planned)
                 return;
             _running = null;
+            _holding = false;
             _holdCapTimer?.Dispose();
             _holdCapTimer = null;
-            if (capSec > 0)
+            if (fastTracked)
+                Log.Info($"{_prefix} {Describe(planned)}: hold released (fast-tracked)");
+            else if (capSec > 0)
                 Log.Warning($"{_prefix} {Describe(planned)}: still running after {capSec} s; the next actions start now");
             else
                 Log.Detailed($"{_prefix} {Describe(planned)}: finished at +{_scheduler.NowMs - _t0} ms; next actions released");

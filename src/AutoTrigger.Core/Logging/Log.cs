@@ -21,6 +21,10 @@ namespace AutoTrigger.Core.Logging
         private const long MaxFileBytes = 1024 * 1024;
         private const int KeptFiles = 3;
         private const int MaxQueuedLines = 10000;
+        private const string UserProfileToken = "%USERPROFILE%";
+
+        private static readonly string UserProfile =
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).TrimEnd('\\', '/');
 
         private static readonly BlockingCollection<string> Queue = new BlockingCollection<string>(new ConcurrentQueue<string>());
         private static readonly object StartLock = new object();
@@ -90,11 +94,32 @@ namespace AutoTrigger.Core.Logging
             }
             try
             {
-                Queue.TryAdd(sb.ToString());
+                Queue.TryAdd(HideUserProfile(sb.ToString(), UserProfile));
             }
             catch (InvalidOperationException)
             {
             }
+        }
+
+        public static string HideUserProfile(string text, string profile)
+        {
+            if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(profile))
+                return text;
+            StringBuilder hidden = null;
+            int start = 0;
+            int search = 0;
+            int found;
+            while ((found = text.IndexOf(profile, search, StringComparison.OrdinalIgnoreCase)) >= 0)
+            {
+                int end = found + profile.Length;
+                search = end;
+                if (end < text.Length && char.IsLetterOrDigit(text[end]))
+                    continue;
+                hidden = hidden ?? new StringBuilder(text.Length);
+                hidden.Append(text, start, found - start).Append(UserProfileToken);
+                start = end;
+            }
+            return hidden == null ? text : hidden.Append(text, start, text.Length - start).ToString();
         }
 
         private static string LevelTag(LogLevel level)

@@ -77,10 +77,19 @@ namespace AutoTrigger.Core.Engine
         void SetActive(Guid id);
     }
 
+    public interface IScreenSaver
+    {
+        bool IsOn();
+
+        void Set(bool on);
+    }
+
     public interface IKeyboard
     {
         bool FrontWindowRunsAsAdmin();
 
-        void Press(PressHotkeyAction keys, int holdMs);
+        bool WaitForHeldKeys(int timeoutMs);
+
+        void Press(KeyCombination keys, int holdMs);
     }
 }

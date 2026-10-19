@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace AutoTrigger.Ui
 {
-    internal static class NativeUi
+    internal static partial class NativeUi
     {
         public const int WM_APP = 0x8000;
         public const int WM_DISPLAYCHANGE = 0x007E;
@@ -124,6 +124,39 @@ namespace AutoTrigger.Ui
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool GetCursorPos(out POINT point);
 
+        public const uint MONITOR_DEFAULTTONEAREST = 2;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MONITORINFO
+        {
+            public int cbSize;
+            public RECT rcMonitor;
+            public RECT rcWork;
+            public uint dwFlags;
+        }
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr MonitorFromPoint(POINT point, uint flags);
+
+        [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+
+        public const uint SWP_NOSIZE = 0x0001;
+        public const uint SWP_NOZORDER = 0x0004;
+        public const uint SWP_NOACTIVATE = 0x0010;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
+
         [DllImport("user32.dll")]
         public static extern int GetSystemMetrics(int index);
 
@@ -132,9 +165,6 @@ namespace AutoTrigger.Ui
 
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetModuleHandleW")]
         public static extern IntPtr GetModuleHandle(string moduleName);
-
-        [DllImport("comctl32.dll")]
-        public static extern int LoadIconWithScaleDown(IntPtr instance, IntPtr name, int cx, int cy, out IntPtr icon);
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -169,7 +199,12 @@ namespace AutoTrigger.Ui
         [DllImport("shell32.dll")]
         public static extern int SHGetImageList(int imageList, ref Guid riid, out IntPtr imageListPointer);
 
-        [DllImport("comctl32.dll")]
-        public static extern IntPtr ImageList_GetIcon(IntPtr imageList, int index, uint flags);
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool RegisterHotKey(IntPtr hwnd, int id, uint modifiers, uint virtualKey);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool UnregisterHotKey(IntPtr hwnd, int id);
     }
 }

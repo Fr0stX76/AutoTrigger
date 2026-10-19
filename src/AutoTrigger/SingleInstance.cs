@@ -21,13 +21,32 @@ namespace AutoTrigger
 
         public static SingleInstance TryAcquire()
         {
-            var mutex = new Mutex(true, MutexName, out bool createdNew);
-            if (!createdNew)
+            Mutex mutex = null;
+            EventWaitHandle activate = null;
+            try
             {
-                mutex.Dispose();
-                return null;
+                bool createdNew;
+                try
+                {
+                    mutex = new Mutex(true, MutexName, out createdNew);
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    return null;
+                }
+                if (!createdNew)
+                    return null;
+                activate = new EventWaitHandle(false, EventResetMode.AutoReset, EventName);
+                var instance = new SingleInstance(mutex, activate);
+                mutex = null;
+                activate = null;
+                return instance;
             }
-            return new SingleInstance(mutex, new EventWaitHandle(false, EventResetMode.AutoReset, EventName));
+            finally
+            {
+                activate?.Dispose();
+                mutex?.Dispose();
+            }
         }
 
         public static void ActivateRunningInstance()

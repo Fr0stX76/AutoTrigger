@@ -17,8 +17,7 @@ namespace AutoTrigger.Ui
         private const string CloseType = "close";
         private const string ReferenceType = "reference";
         private const string DisplayType = "display";
-        private const string AudioType = "audio";
-        private const string PowerType = "power";
+        private const string WindowsType = "windows";
         private const string HotkeyType = "hotkey";
 
         private readonly AppSettings _settings;
@@ -58,22 +57,20 @@ namespace AutoTrigger.Ui
             _audio = audio;
             _powerPlans = powerPlans;
 
-            _type = original is CloseProgramAction ? CloseType
+            _type = original is RunProgramAction ? RunType
+                : original is CloseProgramAction ? CloseType
                 : original is IncludeProfileAction ? ReferenceType
-                : original is DisplayAction ? DisplayType
-                : original is AudioAction ? AudioType
-                : original is PowerPlanAction ? PowerType
+                : original is WindowsSettingsAction ? WindowsType
                 : original is PressHotkeyAction ? HotkeyType
-                : RunType;
+                : DisplayType;
             var types = new List<KeyValuePair<string, string>>
             {
+                new KeyValuePair<string, string>(DisplayType, Texts.TypeDisplay),
+                new KeyValuePair<string, string>(WindowsType, Texts.TypeWindowsSettings),
                 new KeyValuePair<string, string>(RunType, Texts.TypeRunProgram),
                 new KeyValuePair<string, string>(CloseType, Texts.TypeCloseProgram),
-                new KeyValuePair<string, string>(HotkeyType, Texts.TypePressHotkey),
+                new KeyValuePair<string, string>(HotkeyType, Texts.TypeHotkey),
                 new KeyValuePair<string, string>(ReferenceType, Texts.TypeReferenceProfile),
-                new KeyValuePair<string, string>(DisplayType, Texts.TypeDisplay),
-                new KeyValuePair<string, string>(AudioType, Texts.TypeAudio),
-                new KeyValuePair<string, string>(PowerType, Texts.TypePowerPlan),
             };
             ComboBox typeBox = Kit.Combo(types, _type, t =>
             {
@@ -97,7 +94,7 @@ namespace AutoTrigger.Ui
         private static string Context(Profile profile, EventKind kind, ProfileAction original, int position)
         {
             string text = (string.IsNullOrWhiteSpace(profile.Name) ? Texts.Unnamed : profile.Name) + " · " + ActionText.EventName(kind);
-            return original == null ? text : text + " · " + string.Format(Texts.ActionNumber, position);
+            return original == null ? text : text + " · " + Texts.Format(Texts.ActionNumber, position);
         }
 
         private StackPanel _runPanel;
@@ -109,29 +106,24 @@ namespace AutoTrigger.Ui
             ShowError(_error, null);
             switch (_type)
             {
+                case RunType: _panelHost.Child = _runPanel; break;
                 case CloseType: _panelHost.Child = _closePanel; break;
                 case ReferenceType: _panelHost.Child = _referencePanel; break;
-                case DisplayType:
-                    if (_displayPanel == null)
-                        BuildDisplay(_original as DisplayAction);
-                    _panelHost.Child = _displayPanel;
-                    break;
-                case AudioType:
-                    if (_audioPanel == null)
-                        BuildAudio(_original as AudioAction);
-                    _panelHost.Child = _audioPanel;
-                    break;
-                case PowerType:
-                    if (_powerPanel == null)
-                        BuildPower(_original as PowerPlanAction);
-                    _panelHost.Child = _powerPanel;
+                case WindowsType:
+                    if (_windowsPanel == null)
+                        BuildWindows(_original as WindowsSettingsAction);
+                    _panelHost.Child = _windowsPanel;
                     break;
                 case HotkeyType:
                     if (_hotkeyPanel == null)
                         BuildHotkey(_original as PressHotkeyAction);
                     _panelHost.Child = _hotkeyPanel;
                     break;
-                default: _panelHost.Child = _runPanel; break;
+                default:
+                    if (_displayPanel == null)
+                        BuildDisplay(_original as DisplayAction);
+                    _panelHost.Child = _displayPanel;
+                    break;
             }
         }
 
@@ -235,14 +227,8 @@ namespace AutoTrigger.Ui
                     };
                     return true;
 
-                case DisplayType:
-                    return TrySaveDisplay(delay);
-
-                case AudioType:
-                    return TrySaveAudio(delay);
-
-                case PowerType:
-                    return TrySavePower(delay);
+                case WindowsType:
+                    return TrySaveWindows(delay);
 
                 case HotkeyType:
                     return TrySaveHotkey(delay);
@@ -257,7 +243,7 @@ namespace AutoTrigger.Ui
                     Result = new IncludeProfileAction { ProfileId = _referenceId, DelayMs = delay };
                     return true;
 
-                default:
+                case RunType:
                     MoveFocus();
                     string path = _runPath.Text.Trim();
                     if (path.Length == 0)
@@ -274,16 +260,19 @@ namespace AutoTrigger.Ui
                         DelayMs = delay,
                     };
                     return true;
+
+                default:
+                    return TrySaveDisplay(delay);
             }
         }
 
-        private void MoveFocus()
+        private static void MoveFocus()
         {
             if (System.Windows.Input.Keyboard.FocusedElement is TextBox box)
                 box.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next));
         }
 
-        private Grid WithBrowse(TextBox box, bool exeOnly)
+        private static Grid WithBrowse(TextBox box, bool exeOnly)
         {
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });

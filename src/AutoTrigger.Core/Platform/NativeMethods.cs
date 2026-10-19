@@ -51,7 +51,7 @@ namespace AutoTrigger.Core.Platform
 
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "QueryFullProcessImageNameW")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool QueryFullProcessImageName(SafeKernelHandle process, uint flags, StringBuilder exeName, ref int size);
+        public static extern bool QueryFullProcessImageName(SafeKernelHandle process, uint flags, [Out] char[] exeName, ref int size);
 
         [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -195,5 +195,26 @@ namespace AutoTrigger.Core.Platform
 
         [DllImport("kernel32.dll")]
         public static extern IntPtr LocalFree(IntPtr memory);
+
+        public const uint SPI_GETSCREENSAVEACTIVE = 0x0010;
+        public const uint SPI_SETSCREENSAVEACTIVE = 0x0011;
+        public const uint SPIF_SENDCHANGE = 0x0002;
+
+        public delegate bool EnumChildProc(IntPtr hwnd, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetClassNameW")]
+        public static extern int GetClassName(IntPtr hwnd, [Out] char[] className, int maxCount);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool EnumChildWindows(IntPtr parent, EnumChildProc callback, IntPtr lParam);
+
+        [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SystemParametersInfoBool(uint action, uint param, [MarshalAs(UnmanagedType.Bool)] out bool value, uint winIni);
+
+        [DllImport("user32.dll", EntryPoint = "SystemParametersInfoW", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SystemParametersInfo(uint action, uint param, IntPtr value, uint winIni);
     }
 }
