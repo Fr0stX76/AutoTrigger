@@ -50,6 +50,8 @@ namespace AutoTrigger.Core.Engine
         void Kill(int pid);
 
         string GetCommandLine(int pid);
+
+        void WindowOwners(HashSet<int> into);
     }
 
     public interface IForegroundSource

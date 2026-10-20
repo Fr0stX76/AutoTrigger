@@ -127,11 +127,14 @@ namespace AutoTrigger
         public const string ScreenSaverOn = "Screen saver on";
         public const string ScreenSaverOff = "Screen saver off";
         public const string KeyboardShortcut = "Keyboard shortcut";
+        public const string KeyboardShortcutStarted = "Keyboard shortcut (Started)";
+        public const string KeyboardShortcutClosed = "Keyboard shortcut (Closed)";
+        public const string KeyboardShortcuts = "Keyboard shortcuts";
         public const string ErrorShortcutModifier = "Use Ctrl or Alt, with or without Shift.";
         public const string ErrorShortcutAltGr = "With your keyboard layout, this combination types a character (AltGr).";
-        public const string ErrorShortcutTaken = "Profile '{0}' already uses this keyboard shortcut.";
+        public const string ErrorShortcutTaken = "Profile '{0}' already uses this keyboard shortcut ({1}).";
         public const string ErrorShortcutIsHotkey = "A 'Hotkey' action in profile '{0}' sends these keys.";
-        public const string ShortcutInUse = "Another program already uses this keyboard shortcut.";
+        public const string ShortcutInUse = "Another program already uses this keyboard shortcut ({1}).";
 
         public const string SearchProfiles = "Search profiles";
         public const string SearchApplications = "Search applications";

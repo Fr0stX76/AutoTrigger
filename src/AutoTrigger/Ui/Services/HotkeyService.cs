@@ -18,15 +18,15 @@ namespace AutoTrigger.Ui
 
         private readonly HwndSource _window;
         private readonly WindowsKeyboard _keyboard;
-        private readonly Action<Guid, KeyCombination> _pressed;
+        private readonly Action<Guid, EventKind, KeyCombination> _pressed;
         private readonly Dictionary<int, Registration> _registered = new Dictionary<int, Registration>();
-        private readonly HashSet<Guid> _inUse = new HashSet<Guid>();
+        private readonly HashSet<string> _inUse = new HashSet<string>();
         private List<Registration> _wanted = new List<Registration>();
         private string _signature = string.Empty;
         private bool _suspended;
         private bool _disposed;
 
-        public HotkeyService(WindowsKeyboard keyboard, Action<Guid, KeyCombination> pressed)
+        public HotkeyService(WindowsKeyboard keyboard, Action<Guid, EventKind, KeyCombination> pressed)
         {
             _keyboard = keyboard;
             _pressed = pressed;
@@ -42,17 +42,18 @@ namespace AutoTrigger.Ui
 
         public event Action Changed;
 
-        public bool IsInUseElsewhere(Guid profileId) => _inUse.Contains(profileId);
+        public bool IsInUseElsewhere(Guid profileId, EventKind kind) => _inUse.Contains(Key(profileId, kind));
+
+        private static string Key(Guid profileId, EventKind kind) => profileId.ToString("N") + ":" + kind;
 
         public void Update(IEnumerable<Profile> profiles)
         {
             if (_disposed)
                 return;
-            List<Registration> wanted = profiles
-                .Where(p => KeyNames.CanBeShortcut(p.Shortcut))
-                .Select(p => new Registration { ProfileId = p.Id, Keys = p.Shortcut.Copy() })
+            List<Registration> wanted = ShortcutRules.All(profiles)
+                .Select(e => new Registration { ProfileId = e.Profile.Id, Event = e.Event, Keys = e.Keys.Copy() })
                 .ToList();
-            string signature = string.Join(";", wanted.Select(w => w.ProfileId.ToString("N") + "=" + w.Keys.GetHashCode()));
+            string signature = string.Join(";", wanted.Select(w => Key(w.ProfileId, w.Event) + "=" + w.Keys.GetHashCode()));
             if (signature == _signature)
                 return;
             _signature = signature;
@@ -90,7 +91,7 @@ namespace AutoTrigger.Ui
                 }
                 else
                 {
-                    _inUse.Add(registration.ProfileId);
+                    _inUse.Add(Key(registration.ProfileId, registration.Event));
                     Log.Warning($"Keyboard shortcut {KeyNames.Readable(registration.Keys)} cannot be used: another program already uses it");
                 }
                 id++;
@@ -110,7 +111,7 @@ namespace AutoTrigger.Ui
             }
             try
             {
-                _pressed(registration.ProfileId, registration.Keys.Copy());
+                _pressed(registration.ProfileId, registration.Event, registration.Keys.Copy());
             }
             catch (Exception ex)
             {
@@ -142,6 +143,7 @@ namespace AutoTrigger.Ui
         private sealed class Registration
         {
             public Guid ProfileId;
+            public EventKind Event;
             public KeyCombination Keys;
         }
     }

@@ -135,7 +135,7 @@ namespace AutoTrigger.Tests
             long started = rig.T();
             Eq(-1L, rig.At("b-later"), "B's action waits for its 3 s delay");
             bool? found = null;
-            rig.Engine.RunProfile(desk.Id, "shortcut Ctrl+Shift+D", ok => found = ok);
+            rig.Engine.RunProfile(desk.Id, EventKind.Started, "shortcut Ctrl+Shift+D", ok => found = ok);
             rig.Sched.Advance(10);
             Eq(true, found, "shortcut ran the profile");
             Check(rig.At("b-later") >= 0 && rig.At("b-later") < started + 3000, "B's pending action fast-tracked");
@@ -162,7 +162,7 @@ namespace AutoTrigger.Tests
             Eq(1, rig.Count("wait"), "wait.exe started and holds");
             Eq(-1L, rig.At("next"), "next held");
             long pressed = rig.T();
-            rig.Engine.RunProfile(desk.Id, "shortcut");
+            rig.Engine.RunProfile(desk.Id, EventKind.Started, "shortcut");
             rig.Sched.Advance(10);
             Eq(pressed, rig.At("next"), "hold released and delay skipped");
             Check(rig.Index("next") < rig.Index("desk"), "then the shortcut profile");
@@ -184,7 +184,7 @@ namespace AutoTrigger.Tests
             rig.Ps.Exit(game);
             rig.Sched.Advance(100);
             long pressed = rig.T();
-            rig.Engine.RunProfile(desk.Id, "shortcut");
+            rig.Engine.RunProfile(desk.Id, EventKind.Started, "shortcut");
             rig.Sched.Advance(9000);
             Eq(-1L, rig.At("desk"), "the shortcut waits while A's action is still running");
             rig.Sched.Advance(1100);
@@ -206,10 +206,10 @@ namespace AutoTrigger.Tests
             var rig = new FastRig(s);
             rig.Engine.Start(paused: true);
             rig.Sched.Advance(10);
-            rig.Engine.RunProfile(m.Id, "shortcut");
+            rig.Engine.RunProfile(m.Id, EventKind.Started, "shortcut");
             rig.Sched.Advance(1000);
             Eq(1, rig.Count("m1"), "works while monitoring is paused");
-            rig.Engine.RunProfile(m.Id, "shortcut");
+            rig.Engine.RunProfile(m.Id, EventKind.Started, "shortcut");
             rig.Sched.Advance(10);
             Eq(2, rig.Count("m1"), "pressed again: runs again");
             rig.Sched.Advance(4500);
@@ -218,16 +218,73 @@ namespace AutoTrigger.Tests
             Eq(1, rig.Count("m2"), "the second run keeps its own delay");
 
             bool? found = null;
-            rig.Engine.RunProfileNamed("  overlay ", "command line", ok => found = ok);
+            rig.Engine.RunProfileNamed("  overlay ", EventKind.Started, "command line", ok => found = ok);
             rig.Sched.Advance(10);
             Eq(true, found, "found by name, case and spaces ignored");
-            rig.Engine.RunProfileNamed("Nope", "command line", ok => found = ok);
+            rig.Engine.RunProfileNamed("Nope", EventKind.Started, "command line", ok => found = ok);
             rig.Sched.Advance(10);
             Eq(false, found, "unknown name reported");
-            rig.Engine.RunProfile(Guid.NewGuid(), "shortcut", ok => found = ok);
+            rig.Engine.RunProfile(Guid.NewGuid(), EventKind.Started, "shortcut", ok => found = ok);
             rig.Sched.Advance(10);
             Eq(false, found, "deleted profile reported");
             rig.Stop();
+        }
+
+        private static void ManualClosedRun()
+        {
+            var s = NewSettings();
+            Profile m = AddProfile(s, "Overlay");
+            m.OnStart.Add(Run("/tools/open.exe", 0));
+            m.OnClose.Add(Run("/tools/shut.exe", 0));
+            var rig = new FastRig(s);
+            rig.Engine.Start();
+            rig.Sched.Advance(10);
+            bool? found = null;
+            rig.Engine.RunProfile(m.Id, EventKind.Closed, "shortcut", ok => found = ok);
+            rig.Sched.Advance(100);
+            Eq(true, found, "Closed shortcut ran the profile");
+            Eq(1, rig.Count("shut"), "its Closed actions ran");
+            Eq(0, rig.Count("open"), "its Started actions did not");
+            rig.Engine.RunProfileNamed("overlay", EventKind.Closed, "command line", ok => found = ok);
+            rig.Sched.Advance(100);
+            Eq(2, rig.Count("shut"), "/closed runs the Closed actions");
+            Eq(0, rig.Count("open"), "and not the Started ones");
+            rig.Engine.RunProfileNamed("overlay", EventKind.Started, "command line");
+            rig.Sched.Advance(100);
+            Eq(1, rig.Count("open"), "/started runs the Started actions");
+            rig.Stop();
+        }
+
+        private static void RunningProgramsList()
+        {
+            var procs = new FakeProcessSystem(new FakeScheduler());
+            FakeProc self = procs.Launch(@"C:\Tools\AutoTrigger.exe");
+            procs.Launch(@"C:\Windows\System32\win32calc.exe");
+            procs.Launch(@"C:\Windows\System32\svchost.exe").HasWindow = false;
+            procs.Launch(@"C:\Windows\System32\svchost.exe").HasWindow = false;
+            procs.Launch(@"C:\Windows\notepad.exe");
+            procs.Launch(@"C:\Windows\notepad.exe");
+            procs.Launch(@"C:\Windows\notepad.exe").HasWindow = false;
+            procs.Launch(@"C:\Program Files\Tray\tray.exe").HasWindow = false;
+            procs.Launch(@"C:\Program Files\Tray\tray.exe");
+            procs.Launch(@"C:\WindowsApps\game.exe").HasWindow = false;
+            procs.Launch(@"C:\Games\hidden.exe").Readable = false;
+            procs.Launch(@"C:\Windows\System32\dllhost.exe").HasWindow = false;
+            procs.Launch(@"C:\WINDOWS\explorer.exe");
+
+            List<string> paths = RunningPrograms.Read(procs, self.Pid, @"C:\Windows\").Select(p => p.Path).ToList();
+            Check(paths.Contains(@"C:\Windows\System32\win32calc.exe"), "a Windows tool with a window is listed");
+            Check(paths.Contains(@"C:\WINDOWS\explorer.exe"), "the Windows folder is matched without case");
+            Check(!paths.Contains(@"C:\Windows\System32\svchost.exe") && !paths.Contains(@"C:\Windows\System32\dllhost.exe"),
+                "Windows background processes stay hidden");
+            Check(paths.Contains(@"C:\Program Files\Tray\tray.exe"), "a tray app without a window stays listed");
+            Check(paths.Contains(@"C:\WindowsApps\game.exe"), "a folder that only starts like Windows is not the Windows folder");
+            Check(!paths.Contains(@"C:\Tools\AutoTrigger.exe"), "AutoTrigger itself is not listed");
+            Check(!paths.Contains(@"C:\Games\hidden.exe"), "a program whose path cannot be read is not listed");
+            Eq(1, paths.Count(p => p == @"C:\Windows\notepad.exe"), "one line for three notepad instances");
+            Eq(1, paths.Count(p => p == @"C:\Program Files\Tray\tray.exe"), "one line when an instance passes both tests");
+            Eq(paths.Count, paths.Distinct(StringComparer.OrdinalIgnoreCase).Count(), "no path listed twice");
+            Eq(5, paths.Count, "five programs listed");
         }
 
         private static void FastTrackSkipsEmptyAndSameApp()
@@ -317,6 +374,25 @@ namespace AutoTrigger.Tests
             Check(p.Shortcut.Equals(back.Profiles[0].Shortcut), "shortcut saved and read back");
             Check(back.Profiles[1].Shortcut == null, "no shortcut stays empty");
             Check(ProfileCopy.Duplicate(back.Profiles[0], "copy").Shortcut == null, "a duplicated profile does not take the shortcut");
+
+            p.ClosedShortcut = new KeyCombination { Alt = true, Key = 0x43 };
+            written = SettingsJson.Write(s);
+            Check(written.ToJson(false).Contains("\"closedShortcut\":{\"keys\":\"Alt+C\""), "readable Closed shortcut in settings.json");
+            back = SettingsJson.Read(written, new List<string>());
+            Check(p.ClosedShortcut.Equals(back.Profiles[0].ClosedShortcut) && p.Shortcut.Equals(back.Profiles[0].Shortcut),
+                "both shortcuts saved and read back");
+            Check(back.Profiles[1].ClosedShortcut == null, "no Closed shortcut stays empty");
+            Check(ProfileCopy.Duplicate(back.Profiles[0], "copy").ClosedShortcut == null, "a duplicated profile does not take the Closed shortcut");
+            Check(back.Profiles[0].ShortcutFor(EventKind.Closed).Equals(p.ClosedShortcut) && back.Profiles[0].ShortcutFor(EventKind.GotFocus) == null,
+                "shortcut by event");
+
+            JsonValue old = JsonValue.Parse("{\"version\":1,\"profiles\":[{\"id\":\"3f1d2c4b-5a69-4788-9abc-def012345678\",\"name\":\"Old\","
+                + "\"shortcut\":{\"keys\":\"Ctrl+Shift+D\",\"ctrl\":true,\"alt\":false,\"shift\":true,\"key\":68},"
+                + "\"onStart\":[],\"onClose\":[],\"onFocus\":[],\"onFocusLost\":[]}]}");
+            AppSettings older = SettingsJson.Read(old, new List<string>());
+            Check(older.Profiles[0].Shortcut != null && older.Profiles[0].Shortcut.Equals(new KeyCombination { Ctrl = true, Shift = true, Key = 0x44 }),
+                "a 1.1.0 shortcut is read as the Started shortcut");
+            Check(older.Profiles[0].ClosedShortcut == null, "a 1.1.0 profile has no Closed shortcut");
 
             Check(KeyNames.CanBeShortcut(new KeyCombination { Ctrl = true, Key = 0x31 }), "Ctrl+1");
             Check(KeyNames.CanBeShortcut(new KeyCombination { Alt = true, Key = 0x70 }), "Alt+F1");

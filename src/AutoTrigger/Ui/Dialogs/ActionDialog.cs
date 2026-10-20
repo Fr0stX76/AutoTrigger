@@ -93,7 +93,7 @@ namespace AutoTrigger.Ui
 
         private static string Context(Profile profile, EventKind kind, ProfileAction original, int position)
         {
-            string text = (string.IsNullOrWhiteSpace(profile.Name) ? Texts.Unnamed : profile.Name) + " · " + ActionText.EventName(kind);
+            string text = ActionText.ProfileName(profile.Name) + " · " + ActionText.EventName(kind);
             return original == null ? text : text + " · " + Texts.Format(Texts.ActionNumber, position);
         }
 
@@ -131,7 +131,7 @@ namespace AutoTrigger.Ui
         {
             _runPanel = new StackPanel();
             _runPath = Kit.TextField(run.Path, null, Texts.ChooseProgramFile);
-            _runPanel.Children.Add(Kit.Field(Texts.Program, WithBrowse(_runPath, false)));
+            _runPanel.Children.Add(Kit.Field(Texts.Program, WithRunning(_runPath, false)));
             _runArguments = Kit.TextField(run.Arguments, null, Texts.None);
             _runPanel.Children.Add(Kit.Field(Texts.Arguments, _runArguments));
             _runPanel.Children.Add(Kit.Separator(new Thickness(0, 18, 0, 0)));
@@ -154,19 +154,7 @@ namespace AutoTrigger.Ui
         {
             _closePanel = new StackPanel();
             _closeTarget = Kit.TextField(close.Target, null, Texts.CloseTargetHint);
-            var program = new StackPanel();
-            program.Children.Add(WithBrowse(_closeTarget, true));
-            var running = Kit.Button(Texts.ChooseRunning, Kit.IconList);
-            running.Margin = new Thickness(0, 8, 0, 0);
-            running.HorizontalAlignment = HorizontalAlignment.Left;
-            running.Click += (s, e) =>
-            {
-                var picker = new ProcessPickerDialog(_processes);
-                if (picker.Run(this))
-                    _closeTarget.Text = picker.SelectedPath;
-            };
-            program.Children.Add(running);
-            _closePanel.Children.Add(Kit.Field(Texts.Program, program));
+            _closePanel.Children.Add(Kit.Field(Texts.Program, WithRunning(_closeTarget, true)));
             _closePanel.Children.Add(Kit.Separator(new Thickness(0, 18, 0, 0)));
 
             _forceAfterValue = close.ForceAfterSec;
@@ -190,7 +178,7 @@ namespace AutoTrigger.Ui
             _referenceId = include?.ProfileId ?? Guid.Empty;
             var items = allowed
                 .OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
-                .Select(p => new KeyValuePair<Guid, string>(p.Id, string.IsNullOrWhiteSpace(p.Name) ? Texts.Unnamed : p.Name))
+                .Select(p => new KeyValuePair<Guid, string>(p.Id, ActionText.ProfileName(p.Name)))
                 .ToList();
             if (_referenceId != Guid.Empty && items.All(i => i.Key != _referenceId))
             {
@@ -270,6 +258,23 @@ namespace AutoTrigger.Ui
         {
             if (System.Windows.Input.Keyboard.FocusedElement is TextBox box)
                 box.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next));
+        }
+
+        private StackPanel WithRunning(TextBox box, bool exeOnly)
+        {
+            var program = new StackPanel();
+            program.Children.Add(WithBrowse(box, exeOnly));
+            var running = Kit.Button(Texts.ChooseRunning, Kit.IconList);
+            running.Margin = new Thickness(0, 8, 0, 0);
+            running.HorizontalAlignment = HorizontalAlignment.Left;
+            running.Click += (s, e) =>
+            {
+                var picker = new ProcessPickerDialog(_processes);
+                if (picker.Run(this))
+                    box.Text = picker.SelectedPath;
+            };
+            program.Children.Add(running);
+            return program;
         }
 
         private static Grid WithBrowse(TextBox box, bool exeOnly)

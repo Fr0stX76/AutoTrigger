@@ -30,6 +30,8 @@ namespace AutoTrigger.Core.Platform
         public const uint ACCESS_SCHEME = 16;
 
         public const uint GW_OWNER = 4;
+        public const int DWMWA_CLOAKED = 14;
+        public const int DWM_CLOAKED_APP = 0x1;
         public const uint WM_CLOSE = 0x0010;
 
         public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
@@ -116,6 +118,9 @@ namespace AutoTrigger.Core.Platform
 
         [DllImport("user32.dll")]
         public static extern IntPtr GetForegroundWindow();
+
+        [DllImport("dwmapi.dll")]
+        public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out int value, int size);
 
         [DllImport("user32.dll")]
         public static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr module, WinEventProc callback,

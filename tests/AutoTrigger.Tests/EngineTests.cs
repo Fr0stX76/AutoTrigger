@@ -268,6 +268,12 @@ namespace AutoTrigger.Tests
 
         public string GetCommandLine(int pid) => Find(pid)?.CommandLine;
 
+        public void WindowOwners(HashSet<int> into)
+        {
+            lock (_lock)
+                into.UnionWith(_procs.Values.Where(p => p.Running && p.HasWindow).Select(p => p.Pid));
+        }
+
         private sealed class Disp : IDisposable
         {
             private readonly Action _a;
@@ -431,6 +437,8 @@ namespace AutoTrigger.Tests
                 ("Newest takes over: 10 s limit", FastTrackLimit),
                 ("Newest takes over: same app and empty profiles", FastTrackSkipsEmptyAndSameApp),
                 ("Manual profile runs", ManualRunRules),
+                ("Manual Closed runs", ManualClosedRun),
+                ("Running programs list", RunningProgramsList),
                 ("Windows Store app frame focus", StoreAppFrameFocus),
                 ("Windows settings: screen saver", ScreenSaverActions),
                 ("Profile shortcuts", ProfileShortcuts),

@@ -14,7 +14,7 @@ Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory
   - **Hotkey**: presses a keyboard shortcut of another program, such as an RTSS overlay.
   - **Reference profile**: reuses the actions of another profile.
 - Shared profiles, a monitoring switch per application and a global pause.
-- Keyboard shortcuts and command line to run a profile on demand.
+- Keyboard shortcuts and command line to run the Started or Closed actions of a profile on demand.
 - Windows Store apps, focus included.
 - Light and dark themes, following Windows by default.
 - Import from AutoActions.
@@ -60,14 +60,15 @@ Applications are matched by full path. Choose **File name only** when the folder
 
 ### Keyboard shortcuts and command line
 
-A profile can have a **Keyboard shortcut** (Ctrl or Alt, with or without Shift, plus a key) that runs its **Started** actions from anywhere. They also work while monitoring is paused.
+A profile can have two keyboard shortcuts (Ctrl or Alt, with or without Shift, plus a key): **Keyboard shortcut (Started)** runs its **Started** actions and **Keyboard shortcut (Closed)** its **Closed** actions, from anywhere. They also work while monitoring is paused. The Status page lists them all.
 
 | Command | Result |
 | --- | --- |
 | `AutoTrigger.exe /pause` | Pause monitoring |
 | `AutoTrigger.exe /resume` | Resume monitoring |
 | `AutoTrigger.exe /toggle` | Pause or resume |
-| `AutoTrigger.exe /profile "Name"` | Run the Started actions of a profile |
+| `AutoTrigger.exe /started "Name"` | Run the Started actions of a profile |
+| `AutoTrigger.exe /closed "Name"` | Run the Closed actions of a profile |
 
 AutoTrigger starts if it is not running. Exit code: 0 on success, 1 on failure, 2 for an unknown command.
 

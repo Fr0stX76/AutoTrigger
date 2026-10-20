@@ -160,6 +160,7 @@ namespace AutoTrigger.Ui
             _search.Text = string.Empty;
             RebuildList();
             ShowEditor();
+            ScrollToSelected();
         }
 
         private string SearchText => _search?.Text?.Trim() ?? string.Empty;
@@ -255,7 +256,7 @@ namespace AutoTrigger.Ui
             ScrollToSelected();
         }
 
-        private static string DisplayName(Profile p) => string.IsNullOrWhiteSpace(p.Name) ? Texts.Unnamed : p.Name;
+        private static string DisplayName(Profile p) => ActionText.ProfileName(p.Name);
 
         private void NewProfile()
         {
@@ -320,7 +321,7 @@ namespace AutoTrigger.Ui
             }
 
             var content = new StackPanel();
-            Grid top = Kit.PairGrid();
+            Grid top = Kit.PairGrid(200);
             _nameBox = Kit.TextField(profile.Name, text =>
             {
                 profile.Name = text;
@@ -336,12 +337,8 @@ namespace AutoTrigger.Ui
             }, Texts.RestartApp);
             restart.HorizontalAlignment = HorizontalAlignment.Left;
             Kit.AddPair(top, Res.Text(Texts.RestartApp), restart, 14);
-            TextBlock shortcutLabel = Res.Text(Texts.KeyboardShortcut);
-            var shortcut = new ShortcutEditor(profile, _settings, _hotkeys);
-            Kit.AddPair(top, shortcutLabel, shortcut, 14);
-            shortcutLabel.VerticalAlignment = VerticalAlignment.Top;
-            shortcutLabel.Margin = new Thickness(0, 14 + 7, 0, 0);
-            shortcut.VerticalAlignment = VerticalAlignment.Top;
+            AddShortcut(top, profile, EventKind.Started, Texts.KeyboardShortcutStarted);
+            AddShortcut(top, profile, EventKind.Closed, Texts.KeyboardShortcutClosed);
             content.Children.Add(top);
 
             content.Children.Add(Kit.Separator(new Thickness(0, 20, 0, 0)));
@@ -363,6 +360,16 @@ namespace AutoTrigger.Ui
             content.Children.Add(events);
 
             _editorHost.Child = Res.Card(content, new Thickness(24, 20, 24, 20));
+        }
+
+        private void AddShortcut(Grid top, Profile profile, EventKind kind, string label)
+        {
+            TextBlock shortcutLabel = Res.Text(label);
+            var shortcut = new ShortcutEditor(profile, kind, _settings, _hotkeys);
+            Kit.AddPair(top, shortcutLabel, shortcut, 14);
+            shortcutLabel.VerticalAlignment = VerticalAlignment.Top;
+            shortcutLabel.Margin = new Thickness(0, 14 + 7, 0, 0);
+            shortcut.VerticalAlignment = VerticalAlignment.Top;
         }
     }
 }

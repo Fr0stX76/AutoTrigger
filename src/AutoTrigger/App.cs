@@ -97,8 +97,8 @@ namespace AutoTrigger
             _displays.Refresh();
             _hotkeys.Update(_settings.Profiles);
             _controller.Changed += () => _hotkeys.Update(_settings.Profiles);
-            if (_startCommand.Kind == CommandKind.Profile)
-                _engine.RunProfileNamed(_startCommand.ProfileName, "command line");
+            if (_startCommand.RunsProfile)
+                _engine.RunProfileNamed(_startCommand.ProfileName, _startCommand.Event, "command line");
 
             if (!_settings.StartMinimized && _startCommand.Kind == CommandKind.None)
                 ShowWindow();
@@ -134,10 +134,10 @@ namespace AutoTrigger
             const string closing = "closing";
             if (_exiting)
                 return Task.FromResult(closing);
-            if (command.Kind == CommandKind.Profile)
+            if (command.RunsProfile)
             {
                 var result = new TaskCompletionSource<string>();
-                _engine.RunProfileNamed(command.ProfileName, "command line",
+                _engine.RunProfileNamed(command.ProfileName, command.Event, "command line",
                     found => result.TrySetResult(found ? CommandServer.Ok : "profile not found"));
                 return result.Task;
             }
@@ -199,7 +199,7 @@ namespace AutoTrigger
             _screenSaver = new WindowsScreenSaver();
             _executor = new ActionExecutor(_processes, displayHardware, _audio, _powerPlans, _keyboard, _screenSaver);
             _hotkeys = new HotkeyService(_keyboard,
-                (profileId, keys) => _engine?.RunProfile(profileId, "keyboard shortcut " + KeyNames.Readable(keys)));
+                (profileId, kind, keys) => _engine?.RunProfile(profileId, kind, "keyboard shortcut " + KeyNames.Readable(keys)));
             HotkeyBox.CapturingChanged += capturing => _hotkeys?.Suspend(capturing);
             _displays = new DisplayService(_controller, displayHardware, _executor, Dispatcher);
         }
@@ -239,8 +239,13 @@ namespace AutoTrigger
 
         private void ConnectStatusPage(StatusPage status)
         {
-            _controller.Changed += () => status.SetApplications(_settings.Applications);
+            _controller.Changed += () =>
+            {
+                status.SetApplications(_settings.Applications);
+                status.SetShortcuts(_settings.Profiles);
+            };
             status.SetApplications(_settings.Applications);
+            status.SetShortcuts(_settings.Profiles);
             status.LaunchRequested += Launch;
             status.MonitoringChanged += on => SetMonitoringPaused(!on);
             status.HdrChanged += SetHdr;

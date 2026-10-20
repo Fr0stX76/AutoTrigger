@@ -22,6 +22,8 @@ namespace AutoTrigger.Ui
             }
         }
 
+        public static string ProfileName(string name) => string.IsNullOrWhiteSpace(name) ? Texts.Unnamed : name;
+
         public static string TypeName(ProfileAction action)
         {
             switch (action)
@@ -63,7 +65,7 @@ namespace AutoTrigger.Ui
         {
             if (target == null)
                 return Texts.MissingProfile;
-            return string.IsNullOrWhiteSpace(target.Name) ? Texts.Unnamed : target.Name;
+            return ProfileName(target.Name);
         }
 
         public static string Details(ProfileAction action, AppSettings settings)

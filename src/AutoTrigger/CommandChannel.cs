@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoTrigger.Core.Logging;
+using AutoTrigger.Core.Model;
 
 namespace AutoTrigger
 {
@@ -16,7 +17,8 @@ namespace AutoTrigger
         Pause,
         Resume,
         Toggle,
-        Profile,
+        Started,
+        Closed,
         Invalid,
     }
 
@@ -25,6 +27,10 @@ namespace AutoTrigger
         public CommandKind Kind { get; private set; }
 
         public string ProfileName { get; private set; } = string.Empty;
+
+        public bool RunsProfile => Kind == CommandKind.Started || Kind == CommandKind.Closed;
+
+        public EventKind Event => Kind == CommandKind.Closed ? EventKind.Closed : EventKind.Started;
 
         public static Command Parse(string[] args)
         {
@@ -50,12 +56,13 @@ namespace AutoTrigger
                 case "pause": return new Command { Kind = CommandKind.Pause };
                 case "resume": return new Command { Kind = CommandKind.Resume };
                 case "toggle": return new Command { Kind = CommandKind.Toggle };
-                case "profile" when rest.Length > 0: return new Command { Kind = CommandKind.Profile, ProfileName = rest };
+                case "started" when rest.Length > 0: return new Command { Kind = CommandKind.Started, ProfileName = rest };
+                case "closed" when rest.Length > 0: return new Command { Kind = CommandKind.Closed, ProfileName = rest };
                 default: return new Command { Kind = CommandKind.Invalid };
             }
         }
 
-        public string ToWire() => Kind == CommandKind.Profile ? "profile " + ProfileName : Kind.ToString().ToLowerInvariant();
+        public string ToWire() => RunsProfile ? Kind.ToString().ToLowerInvariant() + " " + ProfileName : Kind.ToString().ToLowerInvariant();
     }
 
     internal static class CommandWire

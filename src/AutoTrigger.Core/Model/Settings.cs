@@ -123,6 +123,19 @@ namespace AutoTrigger.Core.Model
 
         public KeyCombination Shortcut { get; set; }
 
+        public KeyCombination ClosedShortcut { get; set; }
+
+        public KeyCombination ShortcutFor(EventKind kind) =>
+            kind == EventKind.Started ? Shortcut : kind == EventKind.Closed ? ClosedShortcut : null;
+
+        public void SetShortcut(EventKind kind, KeyCombination keys)
+        {
+            if (kind == EventKind.Started)
+                Shortcut = keys;
+            else if (kind == EventKind.Closed)
+                ClosedShortcut = keys;
+        }
+
         public List<ProfileAction> OnStart { get; } = new List<ProfileAction>();
 
         public List<ProfileAction> OnClose { get; } = new List<ProfileAction>();

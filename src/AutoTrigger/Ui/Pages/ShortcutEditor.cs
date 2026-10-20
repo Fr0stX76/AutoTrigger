@@ -9,19 +9,21 @@ namespace AutoTrigger.Ui
     internal sealed class ShortcutEditor : StackPanel
     {
         private readonly Profile _profile;
+        private readonly EventKind _event;
         private readonly SettingsController _settings;
         private readonly HotkeyService _hotkeys;
         private readonly HotkeyBox _box;
         private readonly TextBlock _message;
         private string _error;
 
-        public ShortcutEditor(Profile profile, SettingsController settings, HotkeyService hotkeys)
+        public ShortcutEditor(Profile profile, EventKind kind, SettingsController settings, HotkeyService hotkeys)
         {
             _profile = profile;
+            _event = kind;
             _settings = settings;
             _hotkeys = hotkeys;
 
-            _box = new HotkeyBox(profile.Shortcut, Texts.PressKeys);
+            _box = new HotkeyBox(profile.ShortcutFor(kind), Texts.PressKeys);
             _box.Captured += OnCaptured;
             _box.Cleared += Clear;
             Children.Add(_box);
@@ -48,12 +50,12 @@ namespace AutoTrigger.Ui
             _error = Check(keys);
             if (_error == null)
             {
-                _profile.Shortcut = keys;
+                _profile.SetShortcut(_event, keys);
                 _settings.Commit();
             }
             else
             {
-                _box.Keys = _profile.Shortcut;
+                _box.Keys = _profile.ShortcutFor(_event);
             }
             ShowState();
         }
@@ -62,9 +64,9 @@ namespace AutoTrigger.Ui
         {
             _error = null;
             _box.Keys = null;
-            if (_profile.Shortcut != null)
+            if (_profile.ShortcutFor(_event) != null)
             {
-                _profile.Shortcut = null;
+                _profile.SetShortcut(_event, null);
                 _settings.Commit();
             }
             ShowState();
@@ -76,21 +78,19 @@ namespace AutoTrigger.Ui
                 return Texts.ErrorShortcutModifier;
             if (WindowsKeyboard.TypesCharacterWithAltGr(keys))
                 return Texts.ErrorShortcutAltGr;
-            Profile owner = ShortcutRules.OwnerOf(_settings.Current, keys, _profile.Id);
+            ShortcutEntry owner = ShortcutRules.EntryOf(_settings.Current, keys, _profile.Id, _event);
             if (owner != null)
-                return Texts.Format(Texts.ErrorShortcutTaken, NameOf(owner));
+                return Texts.Format(Texts.ErrorShortcutTaken, ActionText.ProfileName(owner.Profile.Name), ActionText.EventName(owner.Event));
             Profile sender = ShortcutRules.SenderOf(_settings.Current, keys);
             if (sender != null)
-                return Texts.Format(Texts.ErrorShortcutIsHotkey, NameOf(sender));
+                return Texts.Format(Texts.ErrorShortcutIsHotkey, ActionText.ProfileName(sender.Name));
             return null;
         }
-
-        private static string NameOf(Profile profile) => string.IsNullOrWhiteSpace(profile.Name) ? Texts.Unnamed : profile.Name;
 
         private void ShowState()
         {
             string message = _error;
-            if (message == null && _profile.Shortcut != null && _hotkeys != null && _hotkeys.IsInUseElsewhere(_profile.Id))
+            if (message == null && _profile.ShortcutFor(_event) != null && _hotkeys != null && _hotkeys.IsInUseElsewhere(_profile.Id, _event))
                 message = Texts.ShortcutInUse;
             _message.Text = message ?? string.Empty;
             _message.Visibility = string.IsNullOrEmpty(message) ? Visibility.Collapsed : Visibility.Visible;

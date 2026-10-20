@@ -79,7 +79,8 @@ namespace AutoTrigger.Core.Model
                     Id = GuidOrNew(item, "id"),
                     Name = Str(item, "name", string.Empty),
                     RestartApp = Bool(item, "restartApp", false),
-                    Shortcut = ReadShortcut(item),
+                    Shortcut = ReadShortcut(item, "shortcut"),
+                    ClosedShortcut = ReadShortcut(item, "closedShortcut"),
                 };
                 ReadActions(item, "onStart", profile.OnStart, profile.Name, warnings);
                 ReadActions(item, "onClose", profile.OnClose, profile.Name, warnings);
@@ -182,6 +183,7 @@ namespace AutoTrigger.Core.Model
                     .Set("name", profile.Name ?? string.Empty)
                     .Set("restartApp", profile.RestartApp)
                     .Set("shortcut", WriteShortcut(profile.Shortcut))
+                    .Set("closedShortcut", WriteShortcut(profile.ClosedShortcut))
                     .Set("onStart", WriteActions(profile.OnStart))
                     .Set("onClose", WriteActions(profile.OnClose))
                     .Set("onFocus", WriteActions(profile.OnFocus))
@@ -314,9 +316,9 @@ namespace AutoTrigger.Core.Model
                 .Set("key", keys.Key);
         }
 
-        private static KeyCombination ReadShortcut(JsonValue profile)
+        private static KeyCombination ReadShortcut(JsonValue profile, string name)
         {
-            JsonValue shortcut = profile["shortcut"];
+            JsonValue shortcut = profile[name];
             if (shortcut == null || shortcut.Kind != JsonKind.Object)
                 return null;
             KeyCombination keys = ReadKeys(shortcut);

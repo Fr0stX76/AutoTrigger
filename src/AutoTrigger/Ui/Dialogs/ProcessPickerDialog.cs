@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using AutoTrigger.Core.Engine;
@@ -12,7 +10,7 @@ namespace AutoTrigger.Ui
 {
     internal sealed class ProcessPickerDialog : FormDialog
     {
-        private readonly List<KeyValuePair<string, string>> _programs;
+        private readonly List<RunningProgram> _programs;
         private readonly StackPanel _list = new StackPanel();
         private readonly TextBlock _error = ErrorLine();
         private ListRow _selectedRow;
@@ -59,16 +57,16 @@ namespace AutoTrigger.Ui
             _list.Children.Clear();
             _selectedRow = null;
             string query = (text ?? string.Empty).Trim();
-            foreach (KeyValuePair<string, string> program in _programs)
+            foreach (RunningProgram program in _programs)
             {
-                if (query.Length > 0 && program.Key.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) < 0
-                    && program.Value.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) < 0)
+                if (query.Length > 0 && program.Name.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) < 0
+                    && program.Path.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) < 0)
                     continue;
                 var lines = new StackPanel { Margin = new Thickness(4, 0, 0, 0) };
-                lines.Children.Add(Res.Text(program.Key, 14, FontWeights.SemiBold));
-                lines.Children.Add(Kit.Caption(program.Value));
+                lines.Children.Add(Res.Text(program.Name, 14, FontWeights.SemiBold));
+                lines.Children.Add(Kit.Caption(program.Path));
                 var row = new ListRow(lines, new Thickness(12, 6, 12, 6));
-                string path = program.Value;
+                string path = program.Path;
                 row.Clicked += () => Choose(row, path);
                 row.MouseLeftButtonDown += (s, e) =>
                 {
@@ -95,36 +93,20 @@ namespace AutoTrigger.Ui
             ShowError(_error, null);
         }
 
-        private static List<KeyValuePair<string, string>> ReadPrograms(IProcessSystem processes)
+        private static List<RunningProgram> ReadPrograms(IProcessSystem processes)
         {
             int self;
             using (Process current = Process.GetCurrentProcess())
                 self = current.Id;
-            var byPath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                var running = new List<ProcessEntry>();
-                processes.Snapshot(running);
-                foreach (ProcessEntry entry in running)
-                {
-                    if (entry.Pid == self || entry.Pid <= 4)
-                        continue;
-                    ProcessDetails details = processes.Query(entry.Pid);
-                    if (details == null || string.IsNullOrEmpty(details.Path) || byPath.ContainsKey(details.Path))
-                        continue;
-                    if (details.Path.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.Windows), StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    byPath[details.Path] = Path.GetFileNameWithoutExtension(details.Path);
-                }
+                return RunningPrograms.Read(processes, self, Environment.GetFolderPath(Environment.SpecialFolder.Windows));
             }
             catch (Exception ex)
             {
                 AutoTrigger.Core.Logging.Log.Warning("Running programs cannot be listed", ex);
+                return new List<RunningProgram>();
             }
-            return byPath
-                .Select(p => new KeyValuePair<string, string>(p.Value, p.Key))
-                .OrderBy(p => p.Key, StringComparer.CurrentCultureIgnoreCase)
-                .ToList();
         }
     }
 }

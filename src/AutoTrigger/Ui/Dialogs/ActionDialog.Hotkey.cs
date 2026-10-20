@@ -27,14 +27,11 @@ namespace AutoTrigger.Ui
             Profile owner = ShortcutRules.OwnerOf(_settings, keys);
             if (owner != null)
             {
-                ShowError(_error, Texts.Format(Texts.ErrorHotkeyIsShortcut, ProfileName(owner)));
+                ShowError(_error, Texts.Format(Texts.ErrorHotkeyIsShortcut, ActionText.ProfileName(owner.Name)));
                 return false;
             }
             Result = new PressHotkeyAction { Keys = keys, DelayMs = delay };
             return true;
         }
-
-        private static string ProfileName(Profile profile) =>
-            string.IsNullOrWhiteSpace(profile.Name) ? Texts.Unnamed : profile.Name;
     }
 }

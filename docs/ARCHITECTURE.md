@@ -32,7 +32,7 @@ Rules that keep this safe:
 2. **Plan** (`PlanBuilder`): the profile's actions for the event, with *Reference profile* inlined (8 levels at most, loops refused).
 3. **Run** (`EventRun`): actions start one after the other; a delay counts from the start of the previous action; *Hold next* waits for the program to end, up to its cap.
 4. **Newest takes over** (`TriggerEngine.Runs`): a new run with actions fast-tracks the runs of other applications and of keyboard shortcuts (remaining actions at once, holds released) and waits for them, 10 s at most.
-5. **On demand**: a keyboard shortcut or `/profile` runs the *Started* actions of a profile, also while monitoring is paused.
+5. **On demand**: a keyboard shortcut, `/started` or `/closed` runs the *Started* or *Closed* actions of a profile, also while monitoring is paused.
 
 ## Settings
 
@@ -43,7 +43,7 @@ Rules that keep this safe:
 
 ## Command line
 
-A second `AutoTrigger.exe` with `/pause`, `/resume`, `/toggle` or `/profile "Name"` sends one line through the named pipe `AutoTrigger.7f3c1d2e.Commands.<session>` and waits for one line back. The pipe is local and open to the current user only. The server drops a silent client after 5 s and answers within 10 s.
+A second `AutoTrigger.exe` with `/pause`, `/resume`, `/toggle`, `/started "Name"` or `/closed "Name"` sends one line through the named pipe `AutoTrigger.7f3c1d2e.Commands.<session>` and waits for one line back. The pipe is local and open to the current user only. The server drops a silent client after 5 s and answers within 10 s.
 
 ## Tests
 

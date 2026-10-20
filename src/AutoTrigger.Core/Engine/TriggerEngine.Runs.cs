@@ -13,17 +13,17 @@ namespace AutoTrigger.Core.Engine
         private readonly Dictionary<Guid, EventRun> _manualRuns = new Dictionary<Guid, EventRun>();
         private readonly List<WaitingRun> _waiting = new List<WaitingRun>();
 
-        public void RunProfile(Guid profileId, string trigger, Action<bool> done = null) =>
+        public void RunProfile(Guid profileId, EventKind kind, string trigger, Action<bool> done = null) =>
             _scheduler.Post(() =>
             {
                 Profile profile = _settings.FindProfile(profileId);
                 if (profile == null && !_stopped)
                     Log.Detailed($"{trigger}: its profile is not known yet; press it again");
-                Report(done, RunProfileCore(profile, trigger));
+                Report(done, RunProfileCore(profile, kind, trigger));
             });
 
-        public void RunProfileNamed(string name, string trigger, Action<bool> done = null) =>
-            _scheduler.Post(() => Report(done, RunProfileCore(FindProfileNamed(name), trigger)));
+        public void RunProfileNamed(string name, EventKind kind, string trigger, Action<bool> done = null) =>
+            _scheduler.Post(() => Report(done, RunProfileCore(FindProfileNamed(name), kind, trigger)));
 
         private static void Report(Action<bool> done, bool result)
         {
@@ -50,7 +50,7 @@ namespace AutoTrigger.Core.Engine
             return matches.FirstOrDefault();
         }
 
-        private bool RunProfileCore(Profile profile, string trigger)
+        private bool RunProfileCore(Profile profile, EventKind kind, string trigger)
         {
             if (_stopped || profile == null)
                 return false;
@@ -62,12 +62,12 @@ namespace AutoTrigger.Core.Engine
             }
 
             string name = string.IsNullOrWhiteSpace(profile.Name) ? "unnamed" : profile.Name;
-            List<PlannedAction> plan = PlanBuilder.Build(_settings, profile, EventKind.Started);
-            Log.Info($"{trigger}: profile '{name}', {plan.Count} action(s)");
-            if (profile.RestartApp)
+            List<PlannedAction> plan = PlanBuilder.Build(_settings, profile, kind);
+            Log.Info($"{trigger}: profile '{name}', {plan.Count} {kind} action(s)");
+            if (profile.RestartApp && kind == EventKind.Started)
                 Log.Detailed($"Profile '{name}': Restart app is ignored ({trigger})");
 
-            var run = new EventRun(_scheduler, _execute, $"{name} / {trigger}", trigger, EventKind.Started, profile, plan,
+            var run = new EventRun(_scheduler, _execute, $"{name} / {trigger}", trigger, kind, profile, plan,
                 r => ManualRunFinished(profile.Id, r));
             _manualRuns[profile.Id] = run;
             Begin(run, ManualSource(profile.Id));

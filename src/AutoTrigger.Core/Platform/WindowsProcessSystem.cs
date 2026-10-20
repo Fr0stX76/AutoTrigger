@@ -136,19 +136,39 @@ namespace AutoTrigger.Core.Platform
         public bool RequestClose(int pid)
         {
             int asked = 0;
+            MainWindows((hwnd, owner) =>
+            {
+                if (owner == pid && NativeMethods.PostMessage(hwnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero))
+                    asked++;
+            });
+            return asked > 0;
+        }
+
+        public void WindowOwners(HashSet<int> into) =>
+            MainWindows((hwnd, owner) =>
+            {
+                if (owner > 0 && !IsCloakedByApp(hwnd))
+                    into.Add(owner);
+            });
+
+        private static void MainWindows(Action<IntPtr, int> each)
+        {
             NativeMethods.EnumWindowsProc callback = (hwnd, lParam) =>
             {
-                _ = NativeMethods.GetWindowThreadProcessId(hwnd, out int owner);
-                if (owner == pid && NativeMethods.IsWindowVisible(hwnd)
-                    && NativeMethods.GetWindow(hwnd, NativeMethods.GW_OWNER) == IntPtr.Zero
-                    && NativeMethods.PostMessage(hwnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero))
-                    asked++;
+                if (NativeMethods.IsWindowVisible(hwnd) && NativeMethods.GetWindow(hwnd, NativeMethods.GW_OWNER) == IntPtr.Zero)
+                {
+                    _ = NativeMethods.GetWindowThreadProcessId(hwnd, out int owner);
+                    each(hwnd, owner);
+                }
                 return true;
             };
             NativeMethods.EnumWindows(callback, IntPtr.Zero);
             GC.KeepAlive(callback);
-            return asked > 0;
         }
+
+        private static bool IsCloakedByApp(IntPtr hwnd) =>
+            NativeMethods.DwmGetWindowAttribute(hwnd, NativeMethods.DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0
+            && (cloaked & NativeMethods.DWM_CLOAKED_APP) != 0;
 
         public void Kill(int pid)
         {

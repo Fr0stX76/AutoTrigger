@@ -371,7 +371,7 @@ namespace AutoTrigger.Ui
                 list.Add(new KeyValuePair<Guid, string>(Guid.Empty, Texts.None));
             list.AddRange(settings.Profiles
                 .OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
-                .Select(p => new KeyValuePair<Guid, string>(p.Id, string.IsNullOrWhiteSpace(p.Name) ? Texts.Unnamed : p.Name)));
+                .Select(p => new KeyValuePair<Guid, string>(p.Id, ActionText.ProfileName(p.Name))));
             return list;
         }
 

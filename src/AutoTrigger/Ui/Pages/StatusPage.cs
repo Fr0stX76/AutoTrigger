@@ -24,6 +24,8 @@ namespace AutoTrigger.Ui
         private readonly TextBlock _currentProfile;
         private readonly TextBlock _profileLink;
         private readonly Run _profileRun = new Run();
+        private readonly Grid _shortcuts = new Grid();
+        private string _shownShortcuts;
         private Guid _profileId;
         private Dictionary<Guid, AppEntry> _apps = new Dictionary<Guid, AppEntry>();
         private Guid _shownApp = Guid.NewGuid();
@@ -57,8 +59,8 @@ namespace AutoTrigger.Ui
             Children.Add(left);
 
             var right = new Grid { Margin = new Thickness(0, 24, 32, 24), HorizontalAlignment = HorizontalAlignment.Left };
-            right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            for (int i = 0; i < 4; i++)
+                right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             right.Children.Add(Heading(Texts.Status));
 
             var grid = new Grid();
@@ -78,17 +80,11 @@ namespace AutoTrigger.Ui
             current.Children.Add(_currentName);
 
             _currentProfile = Res.Text(Texts.None, 14);
-            var link = new Hyperlink(_profileRun) { TextDecorations = null, Cursor = System.Windows.Input.Cursors.Hand };
-            link.SetResourceReference(TextElement.ForegroundProperty, Res.AccentFill);
-            link.MouseEnter += (s, e) => link.TextDecorations = TextDecorations.Underline;
-            link.MouseLeave += (s, e) => link.TextDecorations = null;
-            link.Click += (s, e) =>
+            _profileLink = ProfileLink(_profileRun, () =>
             {
                 if (_profileId != Guid.Empty)
                     ProfileClicked?.Invoke(_profileId);
-            };
-            _profileLink = Res.Text(string.Empty, 14);
-            _profileLink.Inlines.Add(link);
+            });
             _profileLink.Visibility = Visibility.Collapsed;
             var profilePanel = new Grid();
             profilePanel.Children.Add(_currentProfile);
@@ -105,8 +101,31 @@ namespace AutoTrigger.Ui
             statusCard.MaxWidth = 640;
             Grid.SetRow(statusCard, 1);
             right.Children.Add(statusCard);
-            Grid.SetColumn(right, 2);
-            Children.Add(right);
+
+            TextBlock shortcutsHeading = Heading(Texts.KeyboardShortcuts);
+            shortcutsHeading.Margin = new Thickness(0, 24, 0, 12);
+            Grid.SetRow(shortcutsHeading, 2);
+            right.Children.Add(shortcutsHeading);
+            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
+            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            Border shortcutsCard = Res.Card(_shortcuts, new Thickness(24, 14, 24, 14));
+            shortcutsCard.VerticalAlignment = VerticalAlignment.Top;
+            shortcutsCard.MinWidth = 480;
+            shortcutsCard.MaxWidth = 640;
+            Grid.SetRow(shortcutsCard, 3);
+            right.Children.Add(shortcutsCard);
+            SetShortcuts(Array.Empty<Profile>());
+            var rightScroll = new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = right,
+            };
+            Grid.SetColumn(rightScroll, 2);
+            Children.Add(rightScroll);
 
             ShowCurrent(null, null);
         }
@@ -145,6 +164,55 @@ namespace AutoTrigger.Ui
                 _appList.Children.Add(AppRow(app));
         }
 
+        public void SetShortcuts(IEnumerable<Profile> profiles)
+        {
+            List<ShortcutEntry> entries = ShortcutRules.Sorted(profiles);
+            string shown = string.Join("\n", entries.Select(e => e.Profile.Id + "|" + e.Profile.Name + "|" + e.Event + "|" + KeyNames.Readable(e.Keys)));
+            if (shown == _shownShortcuts)
+                return;
+            _shownShortcuts = shown;
+            _shortcuts.Children.Clear();
+            _shortcuts.RowDefinitions.Clear();
+            if (entries.Count == 0)
+            {
+                _shortcuts.RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) });
+                TextBlock none = Res.Text(Texts.None);
+                Grid.SetColumnSpan(none, 5);
+                _shortcuts.Children.Add(none);
+                return;
+            }
+            for (int i = 0; i < entries.Count; i++)
+            {
+                ShortcutEntry entry = entries[i];
+                _shortcuts.RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) });
+                TextBlock keys = Res.Text(KeyNames.Readable(entry.Keys), 14, FontWeights.SemiBold);
+                Grid.SetRow(keys, i);
+                _shortcuts.Children.Add(keys);
+                Guid id = entry.Profile.Id;
+                TextBlock profile = ProfileLink(new Run(ActionText.ProfileName(entry.Profile.Name)), () => ProfileClicked?.Invoke(id));
+                Grid.SetRow(profile, i);
+                Grid.SetColumn(profile, 2);
+                _shortcuts.Children.Add(profile);
+                TextBlock kind = Res.Text(ActionText.EventName(entry.Event));
+                Grid.SetRow(kind, i);
+                Grid.SetColumn(kind, 4);
+                _shortcuts.Children.Add(kind);
+            }
+        }
+
+        private static TextBlock ProfileLink(Run text, Action clicked)
+        {
+            var link = new Hyperlink(text) { TextDecorations = null, Cursor = System.Windows.Input.Cursors.Hand };
+            link.SetResourceReference(TextElement.ForegroundProperty, Res.AccentFill);
+            link.MouseEnter += (s, e) => link.TextDecorations = TextDecorations.Underline;
+            link.MouseLeave += (s, e) => link.TextDecorations = null;
+            link.Click += (s, e) => clicked();
+            TextBlock block = Res.Text(string.Empty, 14);
+            block.Inlines.Clear();
+            block.Inlines.Add(link);
+            return block;
+        }
+
         public void ShowEngine(EngineSnapshot snapshot)
         {
             bool on = snapshot.Monitoring && !snapshot.Paused;
@@ -158,12 +226,11 @@ namespace AutoTrigger.Ui
             }
             _profileId = snapshot.CurrentProfileId;
             bool hasProfile = snapshot.CurrentProfileId != Guid.Empty;
-            _profileRun.Text = hasProfile ? ProfileName(snapshot.CurrentProfileName) : string.Empty;
+            _profileRun.Text = hasProfile ? ActionText.ProfileName(snapshot.CurrentProfileName) : string.Empty;
             _profileLink.Visibility = hasProfile ? Visibility.Visible : Visibility.Collapsed;
             _currentProfile.Visibility = hasProfile ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        private static string ProfileName(string name) => string.IsNullOrWhiteSpace(name) ? Texts.Unnamed : name;
 
         public void ShowHdr(HdrState hdr, bool changing)
         {
