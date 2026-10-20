@@ -28,7 +28,11 @@ Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory
 
 <img src="images/display-action.png" width="640" alt="Display action">
 
+<img src="images/windows-settings-action.png" width="640" alt="Windows settings action">
+
 <img src="images/displays.png" alt="Displays">
+
+<img src="images/settings.png" alt="Settings">
 
 ## Requirements
 
