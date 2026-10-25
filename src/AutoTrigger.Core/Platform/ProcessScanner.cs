@@ -11,6 +11,7 @@ namespace AutoTrigger.Core.Platform
     internal sealed class ProcessScanner : IDisposable
     {
         private const int SystemProcessInformation = 5;
+        // Undocumented lighter list; used only after it agrees with the documented one (ChooseList).
         private const int SystemBasicProcessInformation = 252;
         private const int StatusInfoLengthMismatch = unchecked((int)0xC0000004);
         private const int InitialBufferSize = 1024 * 1024;
@@ -106,15 +107,8 @@ namespace AutoTrigger.Core.Platform
 
         private static int OwnPid()
         {
-            try
-            {
-                using (Process self = Process.GetCurrentProcess())
-                    return self.Id;
-            }
-            catch (Exception)
-            {
-                return 0;
-            }
+            using (Process self = Process.GetCurrentProcess())
+                return self.Id;
         }
 
         private void EnsureBuffer()

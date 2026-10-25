@@ -10,6 +10,7 @@ namespace AutoTrigger
         {
             var security = new PipeSecurity();
             security.AddAccessRule(new PipeAccessRule(AllowedSid(), PipeAccessRights.FullControl, AccessControlType.Allow));
+            // Network logons are denied outright: the pipe is for this PC only.
             security.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.NetworkSid, null),
                 PipeAccessRights.FullControl, AccessControlType.Deny));
             return new NamedPipeServerStream(name, PipeDirection.InOut, CommandServer.MaxInstances, PipeTransmissionMode.Byte,

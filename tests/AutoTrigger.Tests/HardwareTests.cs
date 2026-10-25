@@ -153,11 +153,16 @@ namespace AutoTrigger.Tests
     public sealed class FakeKeyboard : IKeyboard
     {
         public bool AdminInFront;
+        public string AdminProgram;
         public readonly List<string> Calls = new List<string>();
 
         public bool KeysHeld;
 
-        public bool FrontWindowRunsAsAdmin() => AdminInFront;
+        public bool FrontWindowRunsAsAdmin(out string program)
+        {
+            program = AdminProgram;
+            return AdminInFront;
+        }
 
         public bool WaitForHeldKeys(int timeoutMs) => !KeysHeld;
 
@@ -413,8 +418,17 @@ namespace AutoTrigger.Tests
             keyboard.AdminInFront = true;
             r = exec.ExecuteAsync(overlay).Result;
             Eq(ActionResult.Failed, r.Result, "administrator window in front: fails");
-            Check(r.Message.Contains("administrator"), "administrator window in front: message says why");
+            Eq("Ctrl+Alt+1 not sent: the window in front runs as administrator, and Windows blocks keys sent to it", r.Message,
+                "administrator window in front, name unknown: message says why");
             Eq(0, keyboard.Calls.Count, "administrator window in front: nothing sent");
+
+            keyboard.AdminProgram = "dAffinity.exe";
+            r = exec.ExecuteAsync(overlay).Result;
+            Eq(ActionResult.Failed, r.Result, "named administrator window in front: fails");
+            Eq("Ctrl+Alt+1 not sent: the window in front (dAffinity.exe) runs as administrator, and Windows blocks keys sent to it",
+                r.Message, "named administrator window in front: message names the program");
+            Eq(0, keyboard.Calls.Count, "named administrator window in front: nothing sent");
+            keyboard.AdminProgram = null;
 
             keyboard.AdminInFront = false;
             r = exec.ExecuteAsync(new PressHotkeyAction()).Result;

@@ -28,7 +28,7 @@ namespace AutoTrigger.Ui
         private readonly IPowerPlans _powerPlans;
         private readonly HotkeyService _hotkeys;
         private readonly Func<Window> _owner;
-        private readonly StackPanel _list = new StackPanel { Margin = new Thickness(0, 0, 12, 0) };
+        private readonly StackPanel _list = new StackPanel { Margin = Spacing.Right(Spacing.Medium) };
         private readonly Dictionary<Guid, ListRow> _rows = new Dictionary<Guid, ListRow>();
         private readonly Border _editorHost = new Border();
         private readonly UiTextBox _search;
@@ -52,25 +52,35 @@ namespace AutoTrigger.Ui
             this.Bind(BackgroundProperty, Res.Layer);
 
             ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 400, MaxWidth = 440 });
-            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star), MinWidth = 480 });
 
-            var left = new Grid { Margin = new Thickness(32, 24, 0, 24) };
+            _search = Kit.TextField(string.Empty, text => OnSearchChanged(), Texts.SearchProfiles);
+            _duplicate = Kit.Button(Texts.Duplicate, Kit.IconCopy);
+            _duplicate.Click += (s, e) => DuplicateProfile();
+            _delete = Kit.Button(Texts.Delete, Kit.IconMinus);
+            _delete.Click += (s, e) => DeleteProfile();
+            _up = Kit.IconButton(Kit.IconUp, Texts.MoveUp);
+            _up.Click += (s, e) => MoveProfile(-1);
+            _down = Kit.IconButton(Kit.IconDown, Texts.MoveDown);
+            _down.Click += (s, e) => MoveProfile(1);
+
+            Children.Add(BuildListColumn());
+            Grid editorColumn = BuildEditorColumn();
+            Grid.SetColumn(editorColumn, 2);
+            Children.Add(editorColumn);
+        }
+
+        private Grid BuildListColumn()
+        {
+            var left = new Grid { Margin = Spacing.PageLeftColumn };
             left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             left.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             left.Children.Add(Kit.Heading(Texts.TabProfiles));
 
-            _search = Kit.TextField(string.Empty, text => OnSearchChanged(), Texts.SearchProfiles);
-            var searchRow = new Grid { Margin = new Thickness(0, 12, 0, 0) };
-            searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            searchRow.Children.Add(_search);
-            UiButton sort = Kit.SortButton(SortProfiles);
-            sort.Margin = new Thickness(8, 0, 0, 0);
-            Grid.SetColumn(sort, 1);
-            searchRow.Children.Add(sort);
+            Grid searchRow = BuildSearchRow();
             Grid.SetRow(searchRow, 1);
             left.Children.Add(searchRow);
 
@@ -80,37 +90,48 @@ namespace AutoTrigger.Ui
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Content = _list,
             };
-            Border listCard = Res.Card(scroller, new Thickness(4));
-            listCard.Margin = new Thickness(0, 12, 0, 0);
+            Border listCard = Res.Card(scroller, Spacing.ListInset);
+            listCard.Margin = Spacing.Top(Spacing.Medium);
             listCard.VerticalAlignment = VerticalAlignment.Top;
             Grid.SetRow(listCard, 2);
             left.Children.Add(listCard);
 
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0) };
-            var add = Kit.Button(Texts.Add, Kit.IconPlus);
-            add.Click += (s, e) => NewProfile();
-            _duplicate = Kit.Button(Texts.Duplicate, Kit.IconCopy);
-            _duplicate.Margin = new Thickness(8, 0, 0, 0);
-            _duplicate.Click += (s, e) => DuplicateProfile();
-            _delete = Kit.Button(Texts.Delete, Kit.IconMinus);
-            _delete.Margin = new Thickness(8, 0, 0, 0);
-            _delete.Click += (s, e) => DeleteProfile();
-            _up = Kit.IconButton(Kit.IconUp, Texts.MoveUp);
-            _up.Margin = new Thickness(8, 0, 0, 0);
-            _up.Click += (s, e) => MoveProfile(-1);
-            _down = Kit.IconButton(Kit.IconDown, Texts.MoveDown);
-            _down.Margin = new Thickness(8, 0, 0, 0);
-            _down.Click += (s, e) => MoveProfile(1);
-            buttons.Children.Add(add);
-            buttons.Children.Add(_duplicate);
-            buttons.Children.Add(_delete);
-            buttons.Children.Add(_up);
-            buttons.Children.Add(_down);
+            StackPanel buttons = BuildButtonRow();
             Grid.SetRow(buttons, 3);
             left.Children.Add(buttons);
-            Children.Add(left);
+            return left;
+        }
 
-            var right = new Grid { Margin = new Thickness(0, 24, 32, 24) };
+        private Grid BuildSearchRow()
+        {
+            var searchRow = new Grid { Margin = Spacing.Top(Spacing.Medium) };
+            searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            searchRow.Children.Add(_search);
+            UiButton sort = Kit.SortButton(SortProfiles);
+            sort.Margin = Spacing.Left(Spacing.Small);
+            Grid.SetColumn(sort, 1);
+            searchRow.Children.Add(sort);
+            return searchRow;
+        }
+
+        private StackPanel BuildButtonRow()
+        {
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = Spacing.Top(Spacing.Medium) };
+            var add = Kit.Button(Texts.Add, Kit.IconPlus);
+            add.Click += (s, e) => NewProfile();
+            buttons.Children.Add(add);
+            foreach (UiButton button in new[] { _duplicate, _delete, _up, _down })
+            {
+                button.Margin = Spacing.Left(Spacing.Small);
+                buttons.Children.Add(button);
+            }
+            return buttons;
+        }
+
+        private Grid BuildEditorColumn()
+        {
+            var right = new Grid { Margin = Spacing.PageRightColumn };
             right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             right.Children.Add(Kit.Heading(Texts.CurrentProfile));
@@ -119,12 +140,11 @@ namespace AutoTrigger.Ui
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Content = _editorHost,
-                Margin = new Thickness(0, 12, 0, 0),
+                Margin = Spacing.Top(Spacing.Medium),
             };
             Grid.SetRow(editorScroll, 1);
             right.Children.Add(editorScroll);
-            Grid.SetColumn(right, 2);
-            Children.Add(right);
+            return right;
         }
 
         private AppSettings Settings => _settings.Current;
@@ -139,6 +159,7 @@ namespace AutoTrigger.Ui
             }
             catch (Exception ex)
             {
+                // Without the list, power plan references are not checked.
                 AutoTrigger.Core.Logging.Log.Warning("Power plans cannot be listed", ex);
                 return null;
             }
@@ -198,7 +219,7 @@ namespace AutoTrigger.Ui
             if (_list.Children.Count == 0)
             {
                 TextBlock none = Kit.Caption(Settings.Profiles.Count == 0 ? Texts.NoProfiles : Texts.NothingFound);
-                none.Margin = new Thickness(12);
+                none.Margin = new Thickness(Spacing.Medium);
                 none.TextWrapping = TextWrapping.Wrap;
                 _list.Children.Add(none);
             }
@@ -315,7 +336,7 @@ namespace AutoTrigger.Ui
             {
                 _nameBox = null;
                 TextBlock empty = Kit.Caption(Texts.NoProfileSelected);
-                empty.Margin = new Thickness(4);
+                empty.Margin = new Thickness(Spacing.Tight);
                 _editorHost.Child = empty;
                 return;
             }
@@ -343,13 +364,13 @@ namespace AutoTrigger.Ui
 
             content.Children.Add(Kit.Separator(new Thickness(0, 20, 0, 0)));
             TextBlock actions = Kit.Heading(Texts.Actions, 16);
-            actions.Margin = new Thickness(0, 16, 0, 0);
+            actions.Margin = Spacing.Top(Spacing.Large);
             content.Children.Add(actions);
 
             Grid events = Kit.PairGrid();
             events.ColumnDefinitions[0].Width = GridLength.Auto;
-            events.ColumnDefinitions[1].Width = new GridLength(16);
-            events.Margin = new Thickness(0, 16, 0, 0);
+            events.ColumnDefinitions[1].Width = new GridLength(Spacing.Large);
+            events.Margin = Spacing.Top(Spacing.Large);
             foreach (EventKind kind in ActionText.Events)
             {
                 var row = new EventRow(this, profile, kind);
@@ -359,7 +380,7 @@ namespace AutoTrigger.Ui
             }
             content.Children.Add(events);
 
-            _editorHost.Child = Res.Card(content, new Thickness(24, 20, 24, 20));
+            _editorHost.Child = Res.Card(content, Spacing.Panel);
         }
 
         private void AddShortcut(Grid top, Profile profile, EventKind kind, string label)

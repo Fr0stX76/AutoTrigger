@@ -52,7 +52,7 @@ namespace AutoTrigger.Ui
             });
             target.HorizontalAlignment = HorizontalAlignment.Stretch;
             _displayPanel.Children.Add(Kit.Field(Texts.Display, target));
-            _displayPanel.Children.Add(Kit.Separator(new Thickness(0, 18, 0, 0)));
+            _displayPanel.Children.Add(Kit.Separator(Spacing.Top(Spacing.Field)));
 
             var hdrRow = new StackPanel { Orientation = Orientation.Horizontal };
             foreach (KeyValuePair<HdrChange, string> choice in new[]
@@ -63,7 +63,7 @@ namespace AutoTrigger.Ui
             })
             {
                 HdrChange value = choice.Key;
-                var button = new UiButton { Content = choice.Value, MinWidth = 96, Margin = new Thickness(0, 0, 8, 0), Tag = value };
+                var button = new UiButton { Content = choice.Value, MinWidth = 96, Margin = Spacing.Right(Spacing.Small), Tag = value };
                 button.Click += (s, e) =>
                 {
                     _hdr = value;
@@ -80,11 +80,11 @@ namespace AutoTrigger.Ui
 
             _colorSection = new StackPanel();
             TextBlock heading = Kit.Heading(Texts.NvidiaColor, 16);
-            heading.Margin = new Thickness(0, 16, 0, 0);
+            heading.Margin = Spacing.Top(Spacing.Large);
             _colorSection.Children.Add(heading);
             var colors = new Grid { Margin = new Thickness(0, 0, 0, 0) };
             for (int i = 0; i < 5; i++)
-                colors.ColumnDefinitions.Add(new ColumnDefinition { Width = i % 2 == 0 ? new GridLength(1, GridUnitType.Star) : new GridLength(12) });
+                colors.ColumnDefinitions.Add(new ColumnDefinition { Width = i % 2 == 0 ? new GridLength(1, GridUnitType.Star) : new GridLength(Spacing.Medium) });
             AddColumn(colors, 0, Kit.Field(Texts.ColorDepth, _depthHost, 12));
             AddColumn(colors, 2, Kit.Field(Texts.OutputFormat, _formatHost, 12));
             AddColumn(colors, 4, Kit.Field(Texts.DynamicRange, _rangeHost, 12));
@@ -98,7 +98,7 @@ namespace AutoTrigger.Ui
         {
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Medium) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             AddColumn(grid, 0, left);
             AddColumn(grid, 2, right);

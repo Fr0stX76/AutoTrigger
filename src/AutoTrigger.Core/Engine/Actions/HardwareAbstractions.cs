@@ -86,7 +86,8 @@ namespace AutoTrigger.Core.Engine
 
     public interface IKeyboard
     {
-        bool FrontWindowRunsAsAdmin();
+        // program is the exe name of the window's process, or null when Windows does not give it.
+        bool FrontWindowRunsAsAdmin(out string program);
 
         bool WaitForHeldKeys(int timeoutMs);
 

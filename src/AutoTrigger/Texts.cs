@@ -50,6 +50,7 @@ namespace AutoTrigger
         public const string NothingFound = "Nothing found";
         public const string Milliseconds = "ms";
         public const string Seconds = "s";
+        public const string Hours = "h";
         public const string FilterExe = "Programs (*.exe)|*.exe";
         public const string FilterPrograms = "Programs (*.exe;*.bat;*.cmd;*.lnk)|*.exe;*.bat;*.cmd;*.lnk|All files (*.*)|*.*";
 
@@ -74,8 +75,6 @@ namespace AutoTrigger
         public const string AudioInput = "Audio input";
         public const string NoChange = "No change";
         public const string NoActions = "No actions";
-        public const string OneAction = "1 action";
-        public const string ManyActions = "{0} actions";
         public const string Actions = "Actions";
         public const string AddAction = "Add action";
         public const string EditAction = "Edit action";
@@ -134,7 +133,7 @@ namespace AutoTrigger
         public const string ErrorShortcutAltGr = "With your keyboard layout, this combination types a character (AltGr).";
         public const string ErrorShortcutTaken = "Profile '{0}' already uses this keyboard shortcut ({1}).";
         public const string ErrorShortcutIsHotkey = "A 'Hotkey' action in profile '{0}' sends these keys.";
-        public const string ShortcutInUse = "Another program already uses this keyboard shortcut ({1}).";
+        public const string ShortcutInUse = "Another program already uses this keyboard shortcut.";
 
         public const string SearchProfiles = "Search profiles";
         public const string SearchApplications = "Search applications";
@@ -185,6 +184,9 @@ namespace AutoTrigger
         public const string FocusStability = "Focus stability";
         public const string StartDetectionInterval = "Start detection interval";
         public const string LogLevel = "Log level";
+        public const string CheckForUpdates = "Check for updates";
+        public const string CheckEvery = "Check every";
+        public const string UpdateAvailable = "Update available: {0}";
         public const string LogErrors = "Errors only";
         public const string LogWarnings = "Warnings";
         public const string LogInfo = "Information";
@@ -204,7 +206,7 @@ namespace AutoTrigger
         public const string Ok = "OK";
         public const string OpenLicenses = "Open licenses";
         public const string GitHub = "GitHub";
-        public const string RepositoryUrl = "https://github.com/Fr0stX76/AutoTrigger";
+        public const string RepositoryUrl = "https://github.com/" + AutoTrigger.Core.Platform.UpdateCheck.Repository;
         public const string SettingsProblemTitle = "Settings";
         public const string LaunchFailedTitle = "Launch";
         public const string LaunchFailed = "{0} cannot be started: {1}";
@@ -222,7 +224,7 @@ namespace AutoTrigger
         public const string ImportReplaceText = "Replace your applications, profiles and displays with the ones from AutoActions? A copy of your current settings is kept.";
         public const string Replace = "Replace";
         public const string ImportFailed = "This file cannot be imported: {0}.";
-        public const string ImportDone = "Imported {0} applications, {1} profiles ({2} actions) and {3} displays.";
+        public const string ImportDone = "Imported {0}, {1} ({2}) and {3}.";
         public const string ImportNotes = "Notes:";
         public const string ImportPrograms = "Programs these profiles will start:";
         public const string ImportMoreNotes = "…and {0} more.";

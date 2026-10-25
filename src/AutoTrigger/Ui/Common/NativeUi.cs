@@ -8,6 +8,7 @@ namespace AutoTrigger.Ui
         public const int WM_APP = 0x8000;
         public const int WM_DISPLAYCHANGE = 0x007E;
         public const int WM_SETTINGCHANGE = 0x001A;
+        public const int WM_DPICHANGED = 0x02E0;
         public const int WM_THEMECHANGED = 0x031A;
         public const int WM_DWMCOLORIZATIONCOLORCHANGED = 0x0320;
         public const int WM_POWERBROADCAST = 0x0218;
@@ -161,7 +162,15 @@ namespace AutoTrigger.Ui
         public static extern int GetSystemMetrics(int index);
 
         public const int SM_CXSMICON = 49;
-        public const int SM_CYSMICON = 50;
+
+        [DllImport("user32.dll")]
+        public static extern int GetSystemMetricsForDpi(int index, uint dpi);
+
+        [DllImport("user32.dll")]
+        public static extern uint GetDpiForWindow(IntPtr hwnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "FindWindowW")]
+        public static extern IntPtr FindWindow(string className, string windowName);
 
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetModuleHandleW")]
         public static extern IntPtr GetModuleHandle(string moduleName);

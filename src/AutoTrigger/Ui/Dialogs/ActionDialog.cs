@@ -79,7 +79,7 @@ namespace AutoTrigger.Ui
             });
             typeBox.HorizontalAlignment = HorizontalAlignment.Stretch;
             Body.Children.Add(Kit.Field(Texts.Type, typeBox));
-            Body.Children.Add(Kit.Separator(new Thickness(0, 18, 0, 0)));
+            Body.Children.Add(Kit.Separator(Spacing.Top(Spacing.Field)));
             Body.Children.Add(_panelHost);
             Body.Children.Add(_error);
 
@@ -134,7 +134,7 @@ namespace AutoTrigger.Ui
             _runPanel.Children.Add(Kit.Field(Texts.Program, WithRunning(_runPath, false)));
             _runArguments = Kit.TextField(run.Arguments, null, Texts.None);
             _runPanel.Children.Add(Kit.Field(Texts.Arguments, _runArguments));
-            _runPanel.Children.Add(Kit.Separator(new Thickness(0, 18, 0, 0)));
+            _runPanel.Children.Add(Kit.Separator(Spacing.Top(Spacing.Field)));
 
             _holdCapValue = run.HoldCapSec;
             _hold = Kit.Switch(run.HoldNext, on => UpdateHold(), Texts.HoldNext);
@@ -155,7 +155,7 @@ namespace AutoTrigger.Ui
             _closePanel = new StackPanel();
             _closeTarget = Kit.TextField(close.Target, null, Texts.CloseTargetHint);
             _closePanel.Children.Add(Kit.Field(Texts.Program, WithRunning(_closeTarget, true)));
-            _closePanel.Children.Add(Kit.Separator(new Thickness(0, 18, 0, 0)));
+            _closePanel.Children.Add(Kit.Separator(Spacing.Top(Spacing.Field)));
 
             _forceAfterValue = close.ForceAfterSec;
             _force = Kit.Switch(close.Force, on => UpdateForce(), Texts.ForceClose);
@@ -265,7 +265,7 @@ namespace AutoTrigger.Ui
             var program = new StackPanel();
             program.Children.Add(WithBrowse(box, exeOnly));
             var running = Kit.Button(Texts.ChooseRunning, Kit.IconList);
-            running.Margin = new Thickness(0, 8, 0, 0);
+            running.Margin = Spacing.Top(Spacing.Small);
             running.HorizontalAlignment = HorizontalAlignment.Left;
             running.Click += (s, e) =>
             {
@@ -284,7 +284,7 @@ namespace AutoTrigger.Ui
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.Children.Add(box);
             var browse = Kit.Button(Texts.Browse);
-            browse.Margin = new Thickness(8, 0, 0, 0);
+            browse.Margin = Spacing.Left(Spacing.Small);
             browse.Click += (s, e) =>
             {
                 string chosen = BrowseForFile(box.Text, exeOnly);
@@ -317,7 +317,7 @@ namespace AutoTrigger.Ui
 
         private static Grid SwitchRow(string text, ToggleSwitch toggle)
         {
-            var grid = new Grid { Margin = new Thickness(0, 18, 0, 0) };
+            var grid = new Grid { Margin = Spacing.Top(Spacing.Field) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             TextBlock label = Kit.Wrapped(text);
@@ -330,7 +330,7 @@ namespace AutoTrigger.Ui
 
         private static Grid NumberRow(TextBlock label, TextBox box, string unit)
         {
-            var grid = new Grid { Margin = new Thickness(0, 12, 0, 0) };
+            var grid = new Grid { Margin = Spacing.Top(Spacing.Medium) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -338,7 +338,7 @@ namespace AutoTrigger.Ui
             Grid.SetColumn(box, 1);
             grid.Children.Add(box);
             TextBlock unitText = Kit.Caption(unit);
-            unitText.Margin = new Thickness(12, 0, 0, 0);
+            unitText.Margin = Spacing.Left(Spacing.Medium);
             Grid.SetColumn(unitText, 2);
             grid.Children.Add(unitText);
             return grid;

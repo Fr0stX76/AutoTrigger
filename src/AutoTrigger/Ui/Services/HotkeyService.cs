@@ -32,6 +32,7 @@ namespace AutoTrigger.Ui
             _pressed = pressed;
             _window = new HwndSource(new HwndSourceParameters("AutoTrigger shortcuts")
             {
+                // HWND_MESSAGE: a message-only window that receives WM_HOTKEY and is never shown.
                 ParentWindow = new IntPtr(-3),
                 Width = 0,
                 Height = 0,
@@ -62,6 +63,7 @@ namespace AutoTrigger.Ui
                 RegisterAll();
         }
 
+        // While a shortcut is being typed in a box, registered shortcuts are released so the box receives the keys.
         public void Suspend(bool suspended)
         {
             if (_disposed || _suspended == suspended)
@@ -85,6 +87,7 @@ namespace AutoTrigger.Ui
             int id = 1;
             foreach (Registration registration in _wanted)
             {
+                // MOD_NOREPEAT: holding the keys runs the profile once, not on every key repeat.
                 if (NativeUi.RegisterHotKey(_window.Handle, id, Modifiers(registration.Keys) | MOD_NOREPEAT, (uint)registration.Keys.Key))
                 {
                     _registered[id] = registration;
@@ -115,6 +118,7 @@ namespace AutoTrigger.Ui
             }
             catch (Exception ex)
             {
+                // Exceptions must not escape a window procedure.
                 Log.Error("Keyboard shortcut handling failed", ex);
             }
             return IntPtr.Zero;

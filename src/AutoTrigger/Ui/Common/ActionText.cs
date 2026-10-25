@@ -152,7 +152,7 @@ namespace AutoTrigger.Ui
         {
             if (count == 0)
                 return Texts.NoActions;
-            return count == 1 ? Texts.OneAction : Texts.Format(Texts.ManyActions, count);
+            return CountText.Of(count, "action");
         }
 
         private static string SafeFileName(string path)

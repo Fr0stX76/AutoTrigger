@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using AutoTrigger.Core.Logging;
-using Microsoft.Win32;
 
 namespace AutoTrigger.Ui
 {
@@ -86,6 +85,7 @@ namespace AutoTrigger.Ui
                 Win32.SetWindowPos(owner, IntPtr.Zero, 0, 0, 0, 0,
                     Win32.SWP_NOMOVE | Win32.SWP_NOSIZE | Win32.SWP_NOZORDER | Win32.SWP_NOACTIVATE | Win32.SWP_SHOWWINDOW);
 
+                // TrackPopupMenu needs its owner in the foreground, or the menu stays open when clicking elsewhere.
                 if (!Win32.SetForegroundWindow(owner))
                 {
                     Log.Warning("The tray menu did not get the focus; not shown");
@@ -105,6 +105,7 @@ namespace AutoTrigger.Ui
             }
             catch (Exception ex)
             {
+                // A failed menu must leave the tray usable; the finally block restores the hook and the owner.
                 Log.Error("The tray menu failed", ex);
             }
             finally
@@ -115,6 +116,7 @@ namespace AutoTrigger.Ui
                 if (!_disposed)
                 {
                     Win32.ShowWindow(_owner.Handle, Win32.SW_HIDE);
+                    // WM_NULL after the menu, as Windows documents for tray menus, so the next menu opens and closes properly.
                     Win32.PostMessage(_owner.Handle, Win32.WM_NULL, IntPtr.Zero, IntPtr.Zero);
                 }
                 if (_menu != IntPtr.Zero)
@@ -274,6 +276,7 @@ namespace AutoTrigger.Ui
             }
             catch (Exception ex)
             {
+                // Exceptions must not escape a window procedure.
                 Log.Error("Tray menu message handling failed", ex);
             }
             return IntPtr.Zero;
@@ -384,6 +387,7 @@ namespace AutoTrigger.Ui
                     {
                         if (_menuWindow != IntPtr.Zero && Win32.GetWindowRect(_menuWindow, out Win32.RECT menu) && Contains(menu, message.pt))
                             return new IntPtr(1);
+                        // A right-click on the tray icon while the menu is open reopens it, as Windows' own tray menus do.
                         if (_hasIcon && Contains(_icon, message.pt))
                         {
                             bool pressed = message.message != Win32.WM_RBUTTONUP && message.message != Win32.WM_NCRBUTTONUP;
@@ -399,6 +403,7 @@ namespace AutoTrigger.Ui
             }
             catch (Exception ex)
             {
+                // Exceptions must not escape a hook procedure.
                 Log.Error("Tray menu filter failed", ex);
             }
             return Win32.CallNextHookEx(IntPtr.Zero, code, wParam, lParam);
@@ -461,7 +466,7 @@ namespace AutoTrigger.Ui
                 var contrast = new Win32.HIGHCONTRAST { cbSize = (uint)Marshal.SizeOf<Win32.HIGHCONTRAST>() };
                 bool highContrast = Win32.SystemParametersInfo(Win32.SPI_GETHIGHCONTRAST, contrast.cbSize, ref contrast, 0)
                     && (contrast.dwFlags & Win32.HCF_HIGHCONTRASTON) != 0;
-                bool dark = !highContrast && !TaskbarIsLight();
+                bool dark = !highContrast && !WindowsTheme.TaskbarIsLight;
                 if (highContrast)
                 {
                     Background = Win32.GetSysColor(Win32.COLOR_MENU);
@@ -527,20 +532,6 @@ namespace AutoTrigger.Ui
             }
 
             private static uint Rgb(int r, int g, int b) => (uint)(r | (g << 8) | (b << 16));
-
-            private static bool TaskbarIsLight()
-            {
-                try
-                {
-                    object value = Registry.GetValue(
-                        @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "SystemUsesLightTheme", 0);
-                    return value is int light && light != 0;
-                }
-                catch (Exception)
-                {
-                    return false;
-                }
-            }
 
             private static Win32.LOGFONTW MenuFont(uint dpi)
             {

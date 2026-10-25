@@ -24,6 +24,7 @@ namespace AutoTrigger.Ui
                     }
                     catch (Exception ex)
                     {
+                        // A missing icon must not keep the window from opening.
                         Log.Warning("The window icon could not be loaded", ex);
                     }
                 }
@@ -47,6 +48,7 @@ namespace AutoTrigger.Ui
                     }
                     catch (Exception ex)
                     {
+                        // A missing icon must not keep the dialogs from opening.
                         Log.Warning("The small icon could not be loaded", ex);
                     }
                 }

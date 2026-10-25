@@ -52,9 +52,8 @@ namespace AutoTrigger.Ui
             _owner = owner;
             this.Bind(BackgroundProperty, Res.Layer);
             Margin = new Thickness(0);
-            var root = new Grid { Margin = new Thickness(32, 24, 32, 24) };
-            _root = root;
-            root.SizeChanged += (s, e) =>
+            _root = new Grid { Margin = Spacing.PageMargin };
+            _root.SizeChanged += (s, e) =>
             {
                 if (e.WidthChanged)
                     ApplyColumns();
@@ -64,44 +63,67 @@ namespace AutoTrigger.Ui
                 MeasureNeeds();
                 ApplyColumns();
             };
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            _root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
+            _count = Res.Text(string.Empty);
+            _search = Kit.TextField(string.Empty, text => OnSearchChanged(), Texts.SearchApplications);
+            _headings = Columns();
+            _remove = Kit.Button(Texts.Delete, Kit.IconMinus);
+            _remove.Click += (s, e) => RemoveApplication();
+            _edit = Kit.Button(Texts.Edit, Kit.IconPencil);
+            _edit.Click += (s, e) => EditApplication();
+            _up = Kit.IconButton(Kit.IconUp, Texts.MoveUp);
+            _up.Click += (s, e) => Move(-1);
+            _down = Kit.IconButton(Kit.IconDown, Texts.MoveDown);
+            _down.Click += (s, e) => Move(1);
+
+            _root.Children.Add(BuildHeader());
+            _root.Children.Add(BuildSearchRow());
+            _root.Children.Add(BuildTable());
+            _root.Children.Add(BuildButtonBar());
+            Children.Add(_root);
+        }
+
+        private StackPanel BuildHeader()
+        {
             var header = new StackPanel { Orientation = Orientation.Horizontal };
             header.Children.Add(Kit.Heading(Texts.Applications));
-            _count = Res.Text(string.Empty);
-            _count.Margin = new Thickness(12, 4, 0, 0);
+            _count.Margin = new Thickness(Spacing.Medium, Spacing.Tight, 0, 0);
             header.Children.Add(_count);
-            root.Children.Add(header);
+            return header;
+        }
 
-            _search = Kit.TextField(string.Empty, text => OnSearchChanged(), Texts.SearchApplications);
+        private StackPanel BuildSearchRow()
+        {
             _search.Width = 300;
-            var searchRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 12, 0, 0) };
+            var searchRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = Spacing.Top(Spacing.Medium) };
             searchRow.Children.Add(_search);
             UiButton sort = Kit.SortButton(SortApplications);
-            sort.Margin = new Thickness(8, 0, 0, 0);
+            sort.Margin = Spacing.Left(Spacing.Small);
             searchRow.Children.Add(sort);
             Grid.SetRow(searchRow, 1);
-            root.Children.Add(searchRow);
+            return searchRow;
+        }
 
+        private Border BuildTable()
+        {
             var table = new Grid();
             table.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             table.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            Grid headings = Columns();
-            _headings = headings;
-            headings.Margin = new Thickness(16, 10, 16, 10);
+            _headings.Margin = new Thickness(16, 10, 16, 10);
             TextBlock appHeading = Kit.Caption(Texts.Application);
             Grid.SetColumnSpan(appHeading, 3);
-            headings.Children.Add(appHeading);
+            _headings.Children.Add(appHeading);
             TextBlock profileHeading = Kit.Caption(Texts.Profile);
             Grid.SetColumn(profileHeading, 4);
-            headings.Children.Add(profileHeading);
+            _headings.Children.Add(profileHeading);
             TextBlock monitoringHeading = Kit.Caption(Texts.Monitoring);
             Grid.SetColumn(monitoringHeading, 6);
-            headings.Children.Add(monitoringHeading);
-            var headingBorder = new Border { BorderThickness = new Thickness(0, 0, 0, 1), Child = headings };
+            _headings.Children.Add(monitoringHeading);
+            var headingBorder = new Border { BorderThickness = new Thickness(0, 0, 0, 1), Child = _headings };
             headingBorder.SetResourceReference(Border.BorderBrushProperty, Res.CardStroke);
             table.Children.Add(headingBorder);
             var scroller = new ScrollViewer
@@ -114,33 +136,26 @@ namespace AutoTrigger.Ui
             Grid.SetRow(scroller, 1);
             table.Children.Add(scroller);
             Border card = Res.Card(table, new Thickness(0));
-            card.Margin = new Thickness(0, 12, 0, 0);
+            card.Margin = Spacing.Top(Spacing.Medium);
             card.VerticalAlignment = VerticalAlignment.Top;
             card.HorizontalAlignment = HorizontalAlignment.Left;
             Grid.SetRow(card, 2);
-            root.Children.Add(card);
+            return card;
+        }
 
-            var bar = new DockPanel { Margin = new Thickness(0, 12, 0, 0), LastChildFill = false };
+        private DockPanel BuildButtonBar()
+        {
+            var bar = new DockPanel { Margin = Spacing.Top(Spacing.Medium), LastChildFill = false };
             var add = Kit.Button(Texts.Add, Kit.IconPlus);
             add.Click += (s, e) => AddApplication();
-            _remove = Kit.Button(Texts.Delete, Kit.IconMinus);
-            _remove.Click += (s, e) => RemoveApplication();
-            _edit = Kit.Button(Texts.Edit, Kit.IconPencil);
-            _edit.Click += (s, e) => EditApplication();
-            _up = Kit.IconButton(Kit.IconUp, Texts.MoveUp);
-            _up.Click += (s, e) => Move(-1);
-            _down = Kit.IconButton(Kit.IconDown, Texts.MoveDown);
-            _down.Click += (s, e) => Move(1);
             foreach (UiButton b in new[] { add, _remove, _edit, _up, _down })
             {
-                b.Margin = new Thickness(0, 0, 8, 0);
+                b.Margin = Spacing.Right(Spacing.Small);
                 DockPanel.SetDock(b, Dock.Left);
                 bar.Children.Add(b);
             }
             Grid.SetRow(bar, 3);
-            root.Children.Add(bar);
-
-            Children.Add(root);
+            return bar;
         }
 
         private AppSettings Settings => _settings.Current;
@@ -162,11 +177,11 @@ namespace AutoTrigger.Ui
         {
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Large) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(NameColumn) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ProfileColumn) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
             return grid;
         }
@@ -241,7 +256,7 @@ namespace AutoTrigger.Ui
             if (_rowById.Count == 0)
             {
                 TextBlock none = Kit.Caption(Settings.Applications.Count == 0 ? Texts.NoApplicationsYet : Texts.NothingFound);
-                none.Margin = new Thickness(12);
+                none.Margin = new Thickness(Spacing.Medium);
                 _rows.Children.Add(none);
             }
             if (_measuredVersion != _settings.Version)
@@ -274,7 +289,7 @@ namespace AutoTrigger.Ui
             Grid.SetColumn(monitoring, 6);
             grid.Children.Add(monitoring);
 
-            var row = new ListRow(grid, new Thickness(12, 6, 12, 6)) { Margin = new Thickness(0, 2, 0, 2), IsSelected = app.Id == _selectedId };
+            var row = new ListRow(grid, Spacing.ListRow) { Margin = new Thickness(0, 2, 0, 2), IsSelected = app.Id == _selectedId };
             row.Clicked += () => Select(app.Id);
             row.MouseLeftButtonDown += (s, e) =>
             {

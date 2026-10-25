@@ -79,6 +79,7 @@ namespace AutoTrigger.Core.Model
         public static bool CanBeShortcut(KeyCombination keys) =>
             keys != null && keys.IsSet && CanSend(keys.Key) && (keys.Ctrl || keys.Alt || IsSpareFunctionKey(keys.Key));
 
+        // F13 to F24 have no default use, so they need no modifier.
         private static bool IsSpareFunctionKey(int key) => key >= 0x7C && key <= 0x87;
 
         private static bool IsDigit(int key) => key >= 0x30 && key <= 0x39;

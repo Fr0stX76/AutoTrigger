@@ -6,4 +6,8 @@
     <AssemblyTitle>AutoTrigger engine</AssemblyTitle>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
 </Project>

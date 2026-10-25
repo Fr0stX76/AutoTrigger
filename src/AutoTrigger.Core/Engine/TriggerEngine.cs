@@ -11,10 +11,6 @@ namespace AutoTrigger.Core.Engine
     public sealed partial class TriggerEngine : IDisposable
     {
         private const int MaxQueryAttempts = 3;
-        private const int RestartCloseTimeoutMs = 15000;
-        private const int RestartStartTimeoutMs = 30000;
-        private const int EmptyFrameChecks = 3;
-        private const int EmptyFrameCheckMs = 500;
 
         private readonly IProcessSystem _processes;
         private readonly IEngineScheduler _scheduler;
@@ -37,7 +33,6 @@ namespace AutoTrigger.Core.Engine
         private int _snapshotErrors;
         private AppState _focusApp;
         private AppState _lastStarted;
-        private int _emptyFrameChecks;
         private volatile EngineSnapshot _snapshot = EngineSnapshot.Empty;
 
         public TriggerEngine(AppSettings settings, IProcessSystem processes, IEngineScheduler scheduler,
@@ -99,10 +94,10 @@ namespace AutoTrigger.Core.Engine
                 _foreground.Changed += OnForegroundChanged;
             SchedulePoll();
             int disabled = _settings.Applications.Count(a => !a.Enabled);
-            string apps = $"{_settings.Applications.Count} applications";
+            string apps = CountText.Of(_settings.Applications.Count, "application");
             if (disabled > 0)
                 apps += $" ({disabled} disabled)";
-            Log.Info($"Monitoring started: {apps}, {_settings.Profiles.Count} profiles, program starts checked every {_settings.StartPollMs} ms");
+            Log.Info($"Monitoring started: {apps}, {CountText.Of(_settings.Profiles.Count, "profile")}, program starts checked every {_settings.StartPollMs} ms");
             if (_paused)
                 Log.Info("Monitoring paused (kept from the last session)");
             Publish();
@@ -173,6 +168,7 @@ namespace AutoTrigger.Core.Engine
             }
             if (_running)
             {
+                // Programs that a new or changed entry now matches were already running before this change.
                 _rebaseline = true;
                 Poll();
             }
@@ -243,6 +239,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // Logged once until the list can be read again, so a lasting failure does not flood the log.
                 if (_snapshotErrors++ == 0)
                     Log.Error("Cannot list the running programs", ex);
                 return;
@@ -260,6 +257,7 @@ namespace AutoTrigger.Core.Engine
                     continue;
                 if (known != null)
                 {
+                    // A pid that shows another exe name was reused by a new process.
                     if (string.Equals(known.ExeName, entry.ExeName, StringComparison.OrdinalIgnoreCase))
                     {
                         if (!known.Resolved)
@@ -304,10 +302,12 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // Protected or exiting processes cannot be queried; it counts as one attempt.
                 Log.Detailed($"{known.ExeName} (pid {known.Pid}): cannot be read ({ex.Message})");
             }
             if (details == null || string.IsNullOrEmpty(details.Path))
             {
+                // The path of a process that has just started is sometimes not readable yet; after a few polls it is given up.
                 if (++known.Attempts >= MaxQueryAttempts)
                 {
                     known.Resolved = true;
@@ -379,6 +379,8 @@ namespace AutoTrigger.Core.Engine
                 return;
             }
 
+            // Started is not fired late for a program that was already running: it would change displays or audio
+            // in the middle of a session, and its Closed would have no matching Started.
             if (baseline || _paused)
             {
                 app.Ignored = true;
@@ -414,6 +416,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // Any failure here only makes the exit known at the next poll instead of at once.
                 Log.Detailed($"{app.Name}: pid {tracked.Pid} cannot be watched ({ex.Message}); its exit is seen by the regular check");
                 return null;
             }
@@ -456,6 +459,7 @@ namespace AutoTrigger.Core.Engine
 
         private bool RemoveProcess(AppState app, int pid, long creationTime)
         {
+            // The creation time tells the tracked process from a newer one that reuses its pid.
             if (!app.Processes.TryGetValue(pid, out TrackedProcess tracked) || tracked.CreationTime != creationTime)
                 return false;
             app.Processes.Remove(pid);
@@ -497,85 +501,13 @@ namespace AutoTrigger.Core.Engine
             _apps.Remove(app.Entry.Id);
         }
 
-        private void OnForegroundChanged()
-        {
-            _scheduler.Post(() =>
-            {
-                if (!_running || _paused)
-                    return;
-                if (_focusTimer != null)
-                {
-                    _focusTimer.Dispose();
-                    Log.Detailed($"Focus changed again within {_settings.FocusStabilityMs} ms: previous change ignored");
-                }
-                _emptyFrameChecks = 0;
-                _focusTimer = _scheduler.Schedule(_settings.FocusStabilityMs, CheckFocus);
-            });
-        }
-
-        private void CheckFocus()
-        {
-            _focusTimer = null;
-            if (!_running || _paused)
-                return;
-            AppState app = ResolveForeground(true, out bool emptyFrame);
-            if (emptyFrame && _emptyFrameChecks < EmptyFrameChecks)
-            {
-                _emptyFrameChecks++;
-                Log.Detailed("Focus: Windows Store app frame without its app yet; checking again");
-                _focusTimer = _scheduler.Schedule(EmptyFrameCheckMs, CheckFocus);
-                return;
-            }
-            _emptyFrameChecks = 0;
-            if (app == _focusApp)
-                return;
-            AppState previous = _focusApp;
-            _focusApp = app;
-            if (previous != null && IsFollowed(previous))
-                Fire(previous, EventKind.LostFocus, string.Empty);
-            if (app != null && IsFollowed(app))
-                Fire(app, EventKind.GotFocus, string.Empty);
-            Log.Detailed($"Focus: {previous?.Name ?? "other program"} -> {app?.Name ?? "other program"}");
-            Publish();
-        }
-
-        private AppState ResolveForeground(bool pollIfUnknown) => ResolveForeground(pollIfUnknown, out _);
-
-        private AppState ResolveForeground(bool pollIfUnknown, out bool emptyFrame)
-        {
-            emptyFrame = false;
-            if (_foreground == null)
-                return null;
-            int pid;
-            try
-            {
-                pid = _foreground.GetForegroundProcessId();
-            }
-            catch (Exception ex)
-            {
-                Log.Detailed("Cannot read the foreground window: " + ex.Message);
-                return null;
-            }
-            if (pid == ForegroundIds.EmptyFrame)
-            {
-                emptyFrame = true;
-                return null;
-            }
-            if (pid <= 0)
-                return null;
-            if (pollIfUnknown && !_known.ContainsKey(pid))
-                Poll();
-            return _known.TryGetValue(pid, out KnownProcess known) && known.Owner != null && known.Owner.Processes.ContainsKey(pid)
-                ? known.Owner
-                : null;
-        }
-
         private static bool IsFollowed(AppState app) => !app.Ignored && app.Restart == null && app.Processes.Count > 0;
 
         private void Fire(AppState app, EventKind kind, string detail)
         {
             string reason = $"{app.Name} {EventRun.EventText(kind)}";
             bool lifecycle = kind == EventKind.Started || kind == EventKind.Closed;
+            // A new Started or Closed replaces the run still going for the previous one; Closed also ends the focus run.
             if (lifecycle)
             {
                 Cancel(ref app.LifeRun, reason);
@@ -637,122 +569,6 @@ namespace AutoTrigger.Core.Engine
             CheckWaiting();
         }
 
-        private void ReadLaunchArguments(AppState app)
-        {
-            app.LaunchArgs = null;
-            try
-            {
-                string commandLine = _processes.GetCommandLine(app.LaunchPid);
-                if (commandLine != null)
-                    app.LaunchArgs = CommandLine.ArgumentsOf(commandLine);
-            }
-            catch (Exception ex)
-            {
-                Log.Detailed($"{app.Name}: command line cannot be read ({ex.Message})");
-            }
-        }
-
-        private void BeginRestart(AppState app)
-        {
-            app.RestartDone = true;
-            if (string.IsNullOrEmpty(app.LaunchPath))
-            {
-                Log.Error($"{app.Name}: Restart app: the program path is unknown; not restarted");
-                return;
-            }
-            if (app.LaunchArgs == null)
-                Log.Warning($"{app.Name}: Restart app: its command line cannot be read; it will start again without arguments");
-
-            var restart = new RestartState { Path = app.LaunchPath, Arguments = app.LaunchArgs ?? string.Empty };
-            app.Restart = restart;
-            Log.Info($"{app.Name}: Restart app, ending it");
-
-            int[] pids = app.Processes.Keys.ToArray();
-            Task.Run(() =>
-            {
-                var errors = new List<string>();
-                foreach (int pid in pids)
-                {
-                    try
-                    {
-                        _processes.Kill(pid);
-                    }
-                    catch (Exception ex)
-                    {
-                        errors.Add($"pid {pid}: {ex.Message}");
-                    }
-                }
-                return errors;
-            }).ContinueWith(t => _scheduler.Post(() =>
-            {
-                List<string> errors = t.Status == TaskStatus.RanToCompletion ? t.Result : new List<string> { "unexpected error" };
-                if (errors.Count > 0 && app.Restart == restart && !restart.Relaunching)
-                {
-                    Log.Error($"{app.Name}: Restart app: cannot end it ({string.Join("; ", errors)}). "
-                        + "A program run as administrator cannot be ended by AutoTrigger.");
-                    EndRestart(app);
-                    Publish();
-                }
-            }), TaskScheduler.Default);
-
-            restart.Timeout = _scheduler.Schedule(RestartCloseTimeoutMs, () =>
-            {
-                if (app.Restart == restart && !restart.Relaunching)
-                {
-                    Log.Error($"{app.Name}: Restart app: still running after {RestartCloseTimeoutMs / 1000} s; restart abandoned");
-                    EndRestart(app);
-                    Publish();
-                }
-            });
-            Publish();
-        }
-
-        private void RestartClosed(AppState app)
-        {
-            RestartState restart = app.Restart;
-            if (restart.Relaunching)
-                return;
-            restart.Timeout?.Dispose();
-            restart.Relaunching = true;
-            Log.Info($"{app.Name}: Restart app, starting it again");
-
-            string folder = ActionExecutor.ProgramFolder(restart.Path);
-            Task.Run(() => _processes.Start(restart.Path, restart.Arguments, folder, false)).ContinueWith(t => _scheduler.Post(() =>
-            {
-                if (t.Status != TaskStatus.RanToCompletion && app.Restart == restart)
-                {
-                    Log.Error($"{app.Name}: Restart app: cannot start it again ({t.Exception?.GetBaseException().Message})");
-                    RestartFailed(app);
-                }
-            }), TaskScheduler.Default);
-
-            restart.Timeout = _scheduler.Schedule(RestartStartTimeoutMs, () =>
-            {
-                if (app.Restart == restart)
-                {
-                    Log.Error($"{app.Name}: Restart app: not running again after {RestartStartTimeoutMs / 1000} s");
-                    RestartFailed(app);
-                }
-            });
-        }
-
-        private void RestartFailed(AppState app)
-        {
-            EndRestart(app);
-            if (app.Processes.Count == 0 && _running && !_paused)
-                Fire(app, EventKind.Closed, " (restart failed)");
-            else
-                Publish();
-        }
-
-        private static void EndRestart(AppState app)
-        {
-            if (app.Restart == null)
-                return;
-            app.Restart.Timeout?.Dispose();
-            app.Restart = null;
-        }
-
         private void Publish()
         {
             var apps = new List<AppStatus>(_settings.Applications.Count);
@@ -781,6 +597,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // A failing listener must not break the engine thread.
                 Log.Error("Status update failed", ex);
             }
         }
@@ -826,14 +643,6 @@ namespace AutoTrigger.Core.Engine
         {
             public AppEntry Entry;
             public string NormalizedPath;
-        }
-
-        private sealed class RestartState
-        {
-            public string Path;
-            public string Arguments;
-            public bool Relaunching;
-            public IDisposable Timeout;
         }
     }
 }

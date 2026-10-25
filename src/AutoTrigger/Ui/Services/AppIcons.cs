@@ -3,9 +3,11 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
@@ -18,10 +20,15 @@ namespace AutoTrigger.Ui
 {
     internal sealed class AppIcons : IDisposable
     {
+        // Change the number when the cached image changes; older files are removed at start.
         private const string CacheSuffix = "-3.png";
-        private const string OldCacheSuffix = "-2.png";
+
+        // Only files named like the cache's own are ever deleted.
+        private static readonly Regex CacheFileName = new Regex("^[0-9a-f]{32}-[0-9]+\\.png(\\.tmp)?$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         private readonly string _cacheDir;
+        private readonly HashSet<string> _kept;
         private readonly Dispatcher _ui;
         private readonly Dictionary<string, ImageSource> _memory = new Dictionary<string, ImageSource>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<Action<ImageSource>>> _waiting =
@@ -31,11 +38,14 @@ namespace AutoTrigger.Ui
         private ImageSource _generic;
         private bool _genericTried;
 
-        public AppIcons(string cacheDir, Dispatcher ui)
+        public AppIcons(string cacheDir, Dispatcher ui, IEnumerable<string> keptPrograms)
         {
             _cacheDir = cacheDir;
             _ui = ui;
+            _kept = new HashSet<string>(keptPrograms.Select(p => (p ?? string.Empty).Trim()).Where(p => p.Length > 0).Select(CacheFile),
+                StringComparer.OrdinalIgnoreCase);
             _worker = new Thread(WorkerLoop) { IsBackground = true, Name = "AutoTrigger icons" };
+            // Shell icon extraction needs an STA thread and can be slow, so it runs off the UI thread.
             _worker.SetApartmentState(ApartmentState.STA);
             _worker.Start();
         }
@@ -66,7 +76,7 @@ namespace AutoTrigger.Ui
 
         private void WorkerLoop()
         {
-            RemoveOldCache();
+            RemoveUnusedCache();
             foreach (string path in _queue.GetConsumingEnumerable())
             {
                 try
@@ -75,6 +85,7 @@ namespace AutoTrigger.Ui
                 }
                 catch (Exception ex)
                 {
+                    // Worker thread: one bad file must not stop the icons of the others.
                     Log.Detailed($"Icon of {path} cannot be read: {ex.Message}");
                     Deliver(path, null, false, true);
                 }
@@ -85,7 +96,7 @@ namespace AutoTrigger.Ui
         {
             string cacheFile = path.Length > 0 ? CacheFile(path) : null;
             ImageSource cached = cacheFile != null ? Decode(cacheFile) : null;
-            bool exeExists = SafeExists(path);
+            bool exeExists = path.Length > 0 && File.Exists(path);
             bool stale = exeExists && (cached == null || SafeWriteTime(path) > SafeWriteTime(cacheFile));
             if (cached != null && !stale)
             {
@@ -105,6 +116,7 @@ namespace AutoTrigger.Ui
                 }
                 catch (Exception ex)
                 {
+                    // Shell extraction goes through COM and can fail in many ways; the cached or generic icon is used.
                     Log.Detailed($"Icon of {path} cannot be read: {ex.Message}");
                 }
                 ImageSource fresh = png != null ? Decode(png) : null;
@@ -129,6 +141,7 @@ namespace AutoTrigger.Ui
                 }
                 catch (Exception ex)
                 {
+                    // Without a generic icon, the initials stay.
                     Log.Detailed($"Generic icon cannot be read: {ex.Message}");
                 }
             }
@@ -283,18 +296,27 @@ namespace AutoTrigger.Ui
             }
         }
 
-        private void RemoveOldCache()
+        // Runs before any icon is read: icons of programs no longer in the list, and of older cache versions, go.
+        private void RemoveUnusedCache()
         {
             try
             {
                 if (!Directory.Exists(_cacheDir))
                     return;
-                foreach (string old in Directory.GetFiles(_cacheDir, "*" + OldCacheSuffix))
-                    File.Delete(old);
+                int removed = 0;
+                foreach (string file in Directory.GetFiles(_cacheDir))
+                {
+                    if (_kept.Contains(file) || !CacheFileName.IsMatch(Path.GetFileName(file)))
+                        continue;
+                    File.Delete(file);
+                    removed++;
+                }
+                if (removed > 0)
+                    Log.Detailed($"Icon cache: {removed} unused file(s) removed");
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
-                Log.Detailed("Old icon cache files cannot be removed: " + ex.Message);
+                Log.Detailed("Unused icon cache files cannot be removed: " + ex.Message);
             }
         }
 
@@ -314,7 +336,7 @@ namespace AutoTrigger.Ui
             {
                 return File.Exists(file) ? Decode(File.ReadAllBytes(file)) : null;
             }
-            catch (Exception)
+            catch (Exception ex) when (IsFileError(ex))
             {
                 return null;
             }
@@ -337,19 +359,8 @@ namespace AutoTrigger.Ui
             }
             catch (Exception)
             {
+                // A truncated or foreign cache file fails to decode in various ways; the icon is then extracted again.
                 return null;
-            }
-        }
-
-        private static bool SafeExists(string path)
-        {
-            try
-            {
-                return path.Length > 0 && File.Exists(path);
-            }
-            catch (Exception)
-            {
-                return false;
             }
         }
 
@@ -359,11 +370,14 @@ namespace AutoTrigger.Ui
             {
                 return File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
             }
-            catch (Exception)
+            catch (Exception ex) when (IsFileError(ex))
             {
                 return DateTime.MinValue;
             }
         }
+
+        private static bool IsFileError(Exception ex) =>
+            ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is NotSupportedException;
 
         public void Dispose()
         {

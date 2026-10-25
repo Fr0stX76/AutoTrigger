@@ -18,7 +18,8 @@ Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory
 - Windows Store apps, focus included.
 - Light and dark themes, following Windows by default.
 - Import from AutoActions.
-- About 0.06 % of one CPU core while idle. No administrator rights, no network access.
+- Update check: a link at the bottom of the window and a dot on the tray icon when a new version is out.
+- About 0.06 % of one CPU core while idle. No administrator rights. The only network access is the update check, which can be turned off.
 
 <img src="images/status.png" alt="Status">
 
@@ -36,7 +37,7 @@ Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory
 
 ## Requirements
 
-- Windows 11 24H2 or later, 64-bit.
+- Windows 10 22H2 or Windows 11 24H2 and later, 64-bit.
 - .NET Framework 4.8, included in Windows 11.
 - An NVIDIA GPU for color depth, format and range.
 
@@ -52,7 +53,7 @@ Download the zip from the Releases page, extract it and run AutoTrigger.exe. The
 
 ### Moving from AutoActions
 
-Settings, **Import from AutoActions**, then pick its `UserSettings.json`. Applications, profiles and displays are replaced; the previous AutoTrigger settings are backed up and AutoActions' file is not changed. The summary lists the programs the imported profiles will start. Quit AutoActions afterwards, or every action runs twice. AutoActions shortcuts and the default profile are not imported.
+Settings, **Import from AutoActions**, then pick its `UserSettings.json`. Applications, profiles and displays are replaced; the previous AutoTrigger settings are backed up and AutoActions' file is not changed. The summary lists the programs the imported profiles will start. Quit AutoActions afterwards, or every action runs twice. AutoActions shortcuts and the default profile are not imported; an action type AutoTrigger does not know is kept as an unknown action, which does nothing.
 
 ### Full path or file name
 
@@ -76,7 +77,7 @@ AutoTrigger starts if it is not running. Exit code: 0 on success, 1 on failure, 
 
 - One keyboard shortcut per action.
 - The window in front receives the keys too.
-- Windows blocks keys sent to a window run as administrator.
+- Windows blocks keys sent to a window run as administrator; the log names that program.
 - If keys are still held down, such as the keyboard shortcut that ran the profile, the action waits up to 1 s for their release.
 - No confirmation that the other program reacted; some games and anti-cheat systems ignore simulated keys.
 
@@ -104,7 +105,11 @@ The program is written to `out\Release`. [WPF UI](https://github.com/lepoco/wpfu
 - **Display**: resolution with `SetDisplayConfig` and GPU scaling, HDR with `DisplayConfigSetDeviceInfo`, NVIDIA color with NVAPI. Only what differs is changed, and a failed step undoes the previous ones.
 - **Windows settings** sets the default audio devices and uses `PowerSetActiveScheme` for the power plan. The screen saver is changed for the current session only, and turned back on when AutoTrigger exits. **Hotkey** uses `SendInput`.
 - Keyboard shortcuts use `RegisterHotKey`. The command line talks to the running AutoTrigger through a local named pipe open to the current user only.
-- Settings are in `%LOCALAPPDATA%\AutoTrigger\settings.json`, written atomically. Start with Windows uses the current user's `Run` key. AutoTrigger doesn't use the network.
+- Settings are in `%LOCALAPPDATA%\AutoTrigger\settings.json`, written atomically. Start with Windows uses the current user's `Run` key.
+- **Close program** asks the program's windows to close, its hidden ones when none is visible, as `taskkill` does without `/F`. With **Force**, it ends the program once the delay is over.
+- **Update check**: one HTTPS request to the GitHub API, shortly after start and then every 4 h by default, reads the number of the latest release. Nothing is downloaded, installed or sent. With **Check for updates** off in Settings, AutoTrigger doesn't use the network.
+
+  <img src="images/tray-update.png" width="208" alt="Tray icon: normal, update available, paused, paused with an update available">
 
 ## AI disclosure
 

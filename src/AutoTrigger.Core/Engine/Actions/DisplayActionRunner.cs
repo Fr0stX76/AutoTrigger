@@ -283,6 +283,7 @@ namespace AutoTrigger.Core.Engine
                 }
                 catch (Exception ex)
                 {
+                    // Driver errors come in many types. A refused color is skipped; any other failure undoes the steps already done.
                     if (step.Kind == StepKind.Color)
                     {
                         plan.Notes.Add($"{step.ToColor} refused by the driver");
@@ -318,6 +319,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // The monitor can be unreadable while the driver resets after a mode change; the step is then applied anyway.
                 Log.Detailed($"{monitor.Name}: cannot be read again ({ex.Message})");
                 return null;
             }
@@ -342,6 +344,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // NVAPI errors vary by driver; an unknown answer counts as not supported.
                 Log.Detailed($"{monitor.Name}: color check failed: {ex.Message}");
                 return false;
             }
@@ -390,6 +393,7 @@ namespace AutoTrigger.Core.Engine
                 }
                 catch (Exception ex)
                 {
+                    // Undo goes on with the other steps even if one cannot be undone.
                     Log.Error($"{monitor.Name}: could not undo {step.Describe()}: {ex.Message}");
                 }
             }

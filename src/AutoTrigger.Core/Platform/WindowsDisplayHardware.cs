@@ -25,6 +25,7 @@ namespace AutoTrigger.Core.Platform
                 }
                 catch (Exception ex)
                 {
+                    // NVAPI is optional: without it the monitor is still listed, with no color settings.
                     Log.Detailed($"{monitor.Name}: NVIDIA color cannot be read ({ex.Message})");
                 }
             }
@@ -40,6 +41,7 @@ namespace AutoTrigger.Core.Platform
             }
             catch (Exception ex)
             {
+                // Without the mode list, the current resolution is still offered below.
                 Log.Detailed($"{monitor.Name}: resolutions cannot be read ({ex.Message})");
             }
             if (monitor.Desktop.IsSet && !caps.DesktopSizes.Contains(monitor.Desktop))
@@ -50,6 +52,7 @@ namespace AutoTrigger.Core.Platform
             }
             catch (Exception ex)
             {
+                // Without the rate list, the current refresh rate is still offered below.
                 Log.Detailed($"{monitor.Name}: refresh rates cannot be read ({ex.Message})");
             }
             if (monitor.Refresh.IsSet && !caps.RefreshRates.Any(r => r.SameAs(monitor.Refresh)))
@@ -66,6 +69,7 @@ namespace AutoTrigger.Core.Platform
             }
             catch (Exception ex)
             {
+                // NVAPI is optional: other GPUs simply have no color settings.
                 Log.Detailed($"{monitor.Name}: NVIDIA colors cannot be read ({ex.Message})");
             }
             return caps;

@@ -99,7 +99,7 @@ namespace AutoTrigger.Core.Platform
                     return info.dwMajorVersion == 10 ? info.dwBuildNumber : 0;
                 }
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is DllNotFoundException || ex is EntryPointNotFoundException)
             {
             }
             return Environment.OSVersion.Version.Major >= 10 ? Environment.OSVersion.Version.Build : 0;

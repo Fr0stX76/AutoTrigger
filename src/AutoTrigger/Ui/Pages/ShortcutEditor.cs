@@ -76,6 +76,7 @@ namespace AutoTrigger.Ui
         {
             if (!KeyNames.CanBeShortcut(keys))
                 return Texts.ErrorShortcutModifier;
+            // With AltGr layouts, Ctrl+Alt types characters; registering it would block that character everywhere.
             if (WindowsKeyboard.TypesCharacterWithAltGr(keys))
                 return Texts.ErrorShortcutAltGr;
             ShortcutEntry owner = ShortcutRules.EntryOf(_settings.Current, keys, _profile.Id, _event);

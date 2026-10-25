@@ -174,7 +174,7 @@ namespace AutoTrigger.Core.Model
             {
                 int shortcuts = List(_root, "ActionShortcuts").Count();
                 if (shortcuts > 0)
-                    _result.Warnings.Add($"{shortcuts} shortcut(s) not imported: AutoTrigger has no shortcuts.");
+                    _result.Warnings.Add($"{shortcuts} AutoActions shortcut(s) not imported: in AutoTrigger, keyboard shortcuts belong to profiles.");
             }
 
             private ProfileAction ReadAction(JsonValue action, string profileName)
@@ -216,7 +216,10 @@ namespace AutoTrigger.Core.Model
                         };
 
                     default:
-                        throw new FormatException($"unknown action type '{type}' in profile '{profileName}'");
+                        // Kept, not dropped: the profile shows it as an unknown action, and the rest of the file is still imported.
+                        string kept = "AutoActions." + (type.Length > 0 ? type : "unknown");
+                        _result.Warnings.Add($"Profile '{profileName}': action type '{type}' is not known; kept as an unknown action, which does nothing.");
+                        return new UnknownAction(kept, JsonValue.NewObject().Set("type", kept).Set("autoActions", action));
                 }
             }
 

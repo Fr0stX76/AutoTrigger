@@ -44,7 +44,7 @@ namespace AutoTrigger.Ui
             pathRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             pathRow.Children.Add(_path);
             var browse = Kit.Button(Texts.Browse);
-            browse.Margin = new Thickness(8, 0, 0, 0);
+            browse.Margin = Spacing.Left(Spacing.Small);
             browse.Click += (s, e) =>
             {
                 string chosen = ActionDialog.BrowseForFile(_path.Text, true);
@@ -59,7 +59,7 @@ namespace AutoTrigger.Ui
             program.Children.Add(pathRow);
             var running = Kit.Button(Texts.ChooseRunning, Kit.IconList);
             running.HorizontalAlignment = HorizontalAlignment.Left;
-            running.Margin = new Thickness(0, 8, 0, 0);
+            running.Margin = Spacing.Top(Spacing.Small);
             running.Click += (s, e) =>
             {
                 var picker = new ProcessPickerDialog(processes);
@@ -71,9 +71,9 @@ namespace AutoTrigger.Ui
             program.Children.Add(running);
             Body.Children.Add(Kit.Field(Texts.Program, program));
 
-            var nameRow = new Grid { Margin = new Thickness(0, 18, 0, 0) };
+            var nameRow = new Grid { Margin = Spacing.Top(Spacing.Field) };
             nameRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            nameRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
+            nameRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Large) });
             nameRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             var iconField = Kit.Field(Texts.Icon, _icon, 0);
             nameRow.Children.Add(iconField);
@@ -91,7 +91,7 @@ namespace AutoTrigger.Ui
                 Content = Texts.FileNameOnly,
                 GroupName = "recognize",
                 IsChecked = byName,
-                Margin = new Thickness(16, 0, 0, 0),
+                Margin = Spacing.Left(Spacing.Large),
             };
             var recognize = new StackPanel { Orientation = Orientation.Horizontal };
             recognize.Children.Add(_byPath);
@@ -147,7 +147,7 @@ namespace AutoTrigger.Ui
                         return info.ProductName.Trim();
                 }
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
             {
             }
             return Path.GetFileNameWithoutExtension(SafeName(path));

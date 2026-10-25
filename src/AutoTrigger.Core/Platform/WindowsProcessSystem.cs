@@ -22,21 +22,13 @@ namespace AutoTrigger.Core.Platform
             {
                 if (process.IsInvalid || !IsActive(process))
                     return null;
-                var buffer = new char[1024];
-                int size = buffer.Length;
-                if (!NativeMethods.QueryFullProcessImageName(process, 0, buffer, ref size))
-                {
-                    if (Marshal.GetLastWin32Error() != NativeMethods.ERROR_INSUFFICIENT_BUFFER)
-                        return null;
-                    buffer = new char[32768];
-                    size = buffer.Length;
-                    if (!NativeMethods.QueryFullProcessImageName(process, 0, buffer, ref size))
-                        return null;
-                }
+                string path = ImagePath(process);
+                if (path == null)
+                    return null;
                 return new ProcessDetails
                 {
                     Pid = pid,
-                    Path = new string(buffer, 0, size),
+                    Path = path,
                     CreationTime = CreationTime(process),
                 };
             }
@@ -52,6 +44,7 @@ namespace AutoTrigger.Core.Platform
                 if (creationTime != 0)
                 {
                     long actual = CreationTime(process);
+                    // The pid already belongs to a newer process: the one we track has exited.
                     if (actual != 0 && actual != creationTime)
                     {
                         process.Dispose();
@@ -75,6 +68,7 @@ namespace AutoTrigger.Core.Platform
             using (SafeKernelHandle process = Open(pid, NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION))
             {
                 if (process.IsInvalid)
+                    // Access denied: the process exists but is protected.
                     return Marshal.GetLastWin32Error() == NativeMethods.ERROR_ACCESS_DENIED;
                 if (creationTime != 0)
                 {
@@ -92,6 +86,7 @@ namespace AutoTrigger.Core.Platform
             {
                 FileName = path,
                 Arguments = arguments ?? string.Empty,
+                // Like the Run box: finds App Paths names such as notepad.exe and opens documents and links.
                 UseShellExecute = true,
             };
             if (!string.IsNullOrEmpty(workingDirectory))
@@ -135,30 +130,44 @@ namespace AutoTrigger.Core.Platform
 
         public bool RequestClose(int pid)
         {
-            int asked = 0;
-            MainWindows((hwnd, owner) =>
+            var visible = new List<IntPtr>();
+            var hidden = new List<IntPtr>();
+            TopWindows((hwnd, owner, isVisible) =>
             {
-                if (owner == pid && NativeMethods.PostMessage(hwnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero))
-                    asked++;
+                if (owner != pid)
+                    return;
+                if (isVisible)
+                    visible.Add(hwnd);
+                else if (!IsImeWindow(hwnd))
+                    hidden.Add(hwnd);
             });
+            // Like taskkill without /F: a program with no visible window, such as one in the tray or whose
+            // window belongs to a helper process, is asked through its hidden windows.
+            int asked = 0;
+            foreach (IntPtr hwnd in visible.Count > 0 ? visible : hidden)
+            {
+                if (NativeMethods.PostMessage(hwnd, NativeMethods.WM_CLOSE, IntPtr.Zero, IntPtr.Zero))
+                    asked++;
+            }
             return asked > 0;
         }
 
         public void WindowOwners(HashSet<int> into) =>
-            MainWindows((hwnd, owner) =>
+            TopWindows((hwnd, owner, isVisible) =>
             {
-                if (owner > 0 && !IsCloakedByApp(hwnd))
+                if (isVisible && owner > 0 && !IsCloakedByApp(hwnd))
                     into.Add(owner);
             });
 
-        private static void MainWindows(Action<IntPtr, int> each)
+        // Windows without an owner are main windows; dialogs and popups have one.
+        private static void TopWindows(Action<IntPtr, int, bool> each)
         {
             NativeMethods.EnumWindowsProc callback = (hwnd, lParam) =>
             {
-                if (NativeMethods.IsWindowVisible(hwnd) && NativeMethods.GetWindow(hwnd, NativeMethods.GW_OWNER) == IntPtr.Zero)
+                if (NativeMethods.GetWindow(hwnd, NativeMethods.GW_OWNER) == IntPtr.Zero)
                 {
                     _ = NativeMethods.GetWindowThreadProcessId(hwnd, out int owner);
-                    each(hwnd, owner);
+                    each(hwnd, owner, NativeMethods.IsWindowVisible(hwnd));
                 }
                 return true;
             };
@@ -166,20 +175,38 @@ namespace AutoTrigger.Core.Platform
             GC.KeepAlive(callback);
         }
 
+        // Every GUI thread has these input method windows; closing them would only break typing in the program.
+        private static bool IsImeWindow(IntPtr hwnd)
+        {
+            var name = new char[16];
+            int length = NativeMethods.GetClassName(hwnd, name, name.Length);
+            string className = new string(name, 0, Math.Max(0, length));
+            return className == "IME" || className == "MSCTFIME UI";
+        }
+
+        // Suspended Store apps keep cloaked windows. Windows on other virtual desktops are cloaked by the shell instead and still count.
         private static bool IsCloakedByApp(IntPtr hwnd) =>
             NativeMethods.DwmGetWindowAttribute(hwnd, NativeMethods.DWMWA_CLOAKED, out int cloaked, sizeof(int)) == 0
             && (cloaked & NativeMethods.DWM_CLOAKED_APP) != 0;
 
-        public void Kill(int pid)
+        public void Kill(int pid, long creationTime)
         {
             using (SafeKernelHandle process = Open(pid, NativeMethods.PROCESS_TERMINATE | NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION))
             {
                 if (process.IsInvalid)
                 {
                     int error = Marshal.GetLastWin32Error();
+                    // ERROR_INVALID_PARAMETER: the process has already exited.
                     if (error == 87)
                         return;
                     throw new Win32Exception(error);
+                }
+                // The process ended in the meantime and Windows gave its pid to another one, which must not be ended.
+                if (creationTime != 0)
+                {
+                    long actual = CreationTime(process);
+                    if (actual != 0 && actual != creationTime)
+                        return;
                 }
                 if (!NativeMethods.TerminateProcess(process, 1))
                 {
@@ -197,6 +224,7 @@ namespace AutoTrigger.Core.Platform
             {
                 if (process.IsInvalid)
                     return null;
+                // ProcessCommandLineInformation needs only limited query access, unlike reading the process memory.
                 _ = NativeMethods.NtQueryInformationProcess(process, NativeMethods.ProcessCommandLineInformation, IntPtr.Zero, 0, out int needed);
                 if (needed <= 0 || needed > 1024 * 1024)
                     return null;
@@ -220,6 +248,20 @@ namespace AutoTrigger.Core.Platform
 
         public void Dispose() => _scanner.Dispose();
 
+        // Needs only PROCESS_QUERY_LIMITED_INFORMATION, which Windows grants even on elevated processes of the same user.
+        internal static string ImagePath(SafeKernelHandle process)
+        {
+            var buffer = new char[1024];
+            int size = buffer.Length;
+            if (NativeMethods.QueryFullProcessImageName(process, 0, buffer, ref size))
+                return new string(buffer, 0, size);
+            if (Marshal.GetLastWin32Error() != NativeMethods.ERROR_INSUFFICIENT_BUFFER)
+                return null;
+            buffer = new char[32768];
+            size = buffer.Length;
+            return NativeMethods.QueryFullProcessImageName(process, 0, buffer, ref size) ? new string(buffer, 0, size) : null;
+        }
+
         private static SafeKernelHandle Open(int pid, uint access) => NativeMethods.OpenProcess(access, false, pid);
 
         private static bool IsActive(SafeKernelHandle process) =>
@@ -240,6 +282,7 @@ namespace AutoTrigger.Core.Platform
                     return;
                 _onExit = onExit;
                 IntPtr raw = process.DangerousGetHandle();
+                // The wait handle now owns the raw handle; the SafeHandle must not close it as well.
                 process.SetHandleAsInvalid();
                 _handle = new ProcessWaitHandle(new SafeWaitHandle(raw, true));
                 _registration = ThreadPool.RegisterWaitForSingleObject(_handle, (state, timedOut) => Fire(), null, Timeout.Infinite, true);

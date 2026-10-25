@@ -110,6 +110,7 @@ namespace AutoTrigger.Ui
                 }
                 catch (Exception ex)
                 {
+                    // Driver errors vary; one monitor that cannot be read must not hide the others. It is read again next time.
                     lock (_signatures)
                         _signatures.Remove(monitor.DevicePath);
                     Log.Warning($"{monitor.Name}: what the display offers cannot be read: {ex.Message}");
@@ -203,6 +204,7 @@ namespace AutoTrigger.Ui
                     }
                     catch (Exception ex)
                     {
+                        // Each monitor is tried; the errors are shown together afterwards.
                         Log.Error($"HDR could not be turned {(on ? "on" : "off")} for {monitor.Name}: {ex.Message}");
                         errors.Add($"{monitor.Name}: {ex.Message}");
                     }

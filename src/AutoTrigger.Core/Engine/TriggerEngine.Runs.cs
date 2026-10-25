@@ -33,6 +33,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // The caller's callback must not break the engine thread.
                 Log.Error("Profile run result could not be reported", ex);
             }
         }
@@ -54,6 +55,7 @@ namespace AutoTrigger.Core.Engine
         {
             if (_stopped || profile == null)
                 return false;
+            // Pressing a shortcut again restarts its profile instead of running it twice side by side.
             if (_manualRuns.TryGetValue(profile.Id, out EventRun previous))
             {
                 _manualRuns.Remove(profile.Id);
@@ -113,6 +115,8 @@ namespace AutoTrigger.Core.Engine
                 {
                     if (other == run || otherSource == source || other.IsFinished)
                         continue;
+                    // Newest takes over: older runs do their remaining actions now and this run waits for them,
+                    // so the actions of two profiles never interleave.
                     other.FastTrack(run.Trigger);
                     if (!other.IsFinished)
                         blockers.Add(other);
@@ -149,6 +153,7 @@ namespace AutoTrigger.Core.Engine
         {
             if (!_waiting.Contains(waiting))
                 return;
+            // A blocker stuck on a slow action is cancelled, so the new run always starts.
             foreach (EventRun blocker in waiting.Blockers.Where(b => !b.IsFinished).ToList())
                 blocker.Cancel($"fast track took longer than {FastTrackLimitMs / 1000} s");
             CheckWaiting();

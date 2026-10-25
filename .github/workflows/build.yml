@@ -11,9 +11,11 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: microsoft/setup-msbuild@v2
+      # Pinned to commits: a moved tag cannot change what runs here.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2.0.0
       - name: Build
-        run: msbuild AutoTrigger.sln -restore -p:Configuration=Release -p:ContinuousIntegrationBuild=true -m -nologo -v:minimal
+        # Same code analysis as build.cmd; any warning fails the build.
+        run: msbuild AutoTrigger.sln -restore -p:Configuration=Release -p:ContinuousIntegrationBuild=true -p:EnableNETAnalyzers=true -p:AnalysisLevel=latest-recommended -p:AnalysisLevelSecurity=latest-all -p:AnalysisLevelReliability=latest-all -warnaserror -m -nologo -v:minimal
       - name: Test
         run: out\Tests\AutoTrigger.Tests.exe

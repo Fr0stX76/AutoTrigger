@@ -9,6 +9,7 @@ namespace AutoTrigger
         [STAThread]
         private static int Main(string[] args)
         {
+            // The interface is English only; .NET's own texts follow so dialogs never mix languages.
             UseEnglishForSystemTexts();
             Command command = Command.Parse(args);
             if (command.Kind == CommandKind.Invalid)

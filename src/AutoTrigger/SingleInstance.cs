@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Threading;
 using AutoTrigger.Ui;
 
@@ -6,6 +7,7 @@ namespace AutoTrigger
 {
     internal sealed class SingleInstance : IDisposable
     {
+        // Local\ names: one AutoTrigger per Windows session.
         private const string MutexName = @"Local\AutoTrigger.7f3c1d2e.Instance";
         private const string EventName = @"Local\AutoTrigger.7f3c1d2e.Activate";
 
@@ -57,7 +59,7 @@ namespace AutoTrigger
                 using (EventWaitHandle activate = EventWaitHandle.OpenExisting(EventName))
                     activate.Set();
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is WaitHandleCannotBeOpenedException || ex is UnauthorizedAccessException || ex is IOException)
             {
             }
         }

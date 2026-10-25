@@ -94,6 +94,7 @@ namespace AutoTrigger.Core.Engine
                 }
                 catch (Exception ex)
                 {
+                    // One failing work item must not stop the engine thread.
                     Log.Error("Unexpected error in the engine", ex);
                 }
             }

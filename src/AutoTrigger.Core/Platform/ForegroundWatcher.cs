@@ -65,6 +65,7 @@ namespace AutoTrigger.Core.Platform
             }
             catch (Exception ex)
             {
+                // Exceptions must not escape a WinEvent callback.
                 Log.Error("Focus change handling failed", ex);
             }
         }

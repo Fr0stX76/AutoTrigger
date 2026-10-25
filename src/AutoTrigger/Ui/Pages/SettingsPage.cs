@@ -11,6 +11,21 @@ namespace AutoTrigger.Ui
 {
     internal sealed class SettingsPage : Grid, IPage
     {
+        private static readonly KeyValuePair<ThemeMode, string>[] Themes =
+        {
+            new KeyValuePair<ThemeMode, string>(ThemeMode.Auto, Texts.ThemeAuto),
+            new KeyValuePair<ThemeMode, string>(ThemeMode.Light, Texts.ThemeLight),
+            new KeyValuePair<ThemeMode, string>(ThemeMode.Dark, Texts.ThemeDark),
+        };
+
+        private static readonly KeyValuePair<LogLevel, string>[] LogLevels =
+        {
+            new KeyValuePair<LogLevel, string>(LogLevel.Error, Texts.LogErrors),
+            new KeyValuePair<LogLevel, string>(LogLevel.Warning, Texts.LogWarnings),
+            new KeyValuePair<LogLevel, string>(LogLevel.Info, Texts.LogInfo),
+            new KeyValuePair<LogLevel, string>(LogLevel.Detailed, Texts.LogDetailed),
+        };
+
         private readonly SettingsController _settings;
         private readonly Func<bool> _isStartWithWindows;
         private readonly Action<bool> _setStartWithWindows;
@@ -27,9 +42,9 @@ namespace AutoTrigger.Ui
             _openLog = openLog;
             _importFromAutoActions = importFromAutoActions;
             this.Bind(BackgroundProperty, Res.Layer);
-            var root = new StackPanel { Margin = new Thickness(32, 24, 32, 24), MaxWidth = 640, HorizontalAlignment = HorizontalAlignment.Left };
+            var root = new StackPanel { Margin = Spacing.PageMargin, MaxWidth = 640, HorizontalAlignment = HorizontalAlignment.Left };
             root.Children.Add(Kit.Heading(Texts.TabSettings));
-            _host.Margin = new Thickness(0, 12, 0, 0);
+            _host.Margin = Spacing.Top(Spacing.Medium);
             root.Children.Add(_host);
             Children.Add(new ScrollViewer
             {
@@ -60,39 +75,28 @@ namespace AutoTrigger.Ui
                 _settings.Commit();
             }, Texts.CloseToTray), true));
 
-            var themes = new List<KeyValuePair<ThemeMode, string>>
-            {
-                new KeyValuePair<ThemeMode, string>(ThemeMode.Auto, Texts.ThemeAuto),
-                new KeyValuePair<ThemeMode, string>(ThemeMode.Light, Texts.ThemeLight),
-                new KeyValuePair<ThemeMode, string>(ThemeMode.Dark, Texts.ThemeDark),
-            };
-            list.Children.Add(Line(Texts.Theme, Kit.Combo(themes, Settings.Theme, mode =>
+            list.Children.Add(Line(Texts.Theme, Kit.Combo(Themes, Settings.Theme, mode =>
             {
                 Settings.Theme = mode;
                 _settings.Commit();
                 ThemeController.Apply(mode);
             }), true));
 
-            list.Children.Add(NumberLine(Texts.FocusStability, Settings.FocusStabilityMs, 0, 5000, v =>
+            list.Children.Add(NumberLine(Texts.FocusStability, Settings.FocusStabilityMs, 0, 5000, Texts.Milliseconds, v =>
             {
                 Settings.FocusStabilityMs = v;
                 _settings.Commit();
             }));
 
-            list.Children.Add(NumberLine(Texts.StartDetectionInterval, Settings.StartPollMs, 50, 5000, v =>
+            list.Children.Add(NumberLine(Texts.StartDetectionInterval, Settings.StartPollMs, 50, 5000, Texts.Milliseconds, v =>
             {
                 Settings.StartPollMs = v;
                 _settings.Commit();
             }));
 
-            var levels = new List<KeyValuePair<LogLevel, string>>
-            {
-                new KeyValuePair<LogLevel, string>(LogLevel.Error, Texts.LogErrors),
-                new KeyValuePair<LogLevel, string>(LogLevel.Warning, Texts.LogWarnings),
-                new KeyValuePair<LogLevel, string>(LogLevel.Info, Texts.LogInfo),
-                new KeyValuePair<LogLevel, string>(LogLevel.Detailed, Texts.LogDetailed),
-            };
-            list.Children.Add(Line(Texts.LogLevel, Kit.Combo(levels, Settings.LogLevel, level =>
+            AddUpdateLines(list);
+
+            list.Children.Add(Line(Texts.LogLevel, Kit.Combo(LogLevels, Settings.LogLevel, level =>
             {
                 Settings.LogLevel = level;
                 Log.Level = level;
@@ -131,12 +135,13 @@ namespace AutoTrigger.Ui
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             TextBlock label = Res.Text(text);
-            label.Margin = new Thickness(0, 12, 16, 12);
+            label.Margin = new Thickness(0, Spacing.Medium, Spacing.Large, Spacing.Medium);
             grid.Children.Add(label);
             control.VerticalAlignment = VerticalAlignment.Center;
-            control.Margin = new Thickness(0, 12, 0, 12);
+            control.Margin = new Thickness(0, Spacing.Medium, 0, Spacing.Medium);
             Grid.SetColumn(control, 1);
             grid.Children.Add(control);
+            Kit.LabelFor(control, label);
             if (separator)
             {
                 Border line = Kit.Separator(new Thickness(0));
@@ -147,17 +152,37 @@ namespace AutoTrigger.Ui
             return grid;
         }
 
-        private static StackPanel NumberLine(string text, int value, int min, int max, Action<int> commit)
+        private void AddUpdateLines(StackPanel list)
+        {
+            StackPanel interval = NumberLine(Texts.CheckEvery, Settings.UpdateCheckHours, AppSettings.MinUpdateCheckHours,
+                AppSettings.MaxUpdateCheckHours, Texts.Hours, v =>
+                {
+                    Settings.UpdateCheckHours = v;
+                    _settings.Commit();
+                });
+            interval.IsEnabled = Settings.CheckForUpdates;
+            list.Children.Add(Line(Texts.CheckForUpdates, Kit.Switch(Settings.CheckForUpdates, on =>
+            {
+                Settings.CheckForUpdates = on;
+                interval.IsEnabled = on;
+                _settings.Commit();
+            }, Texts.CheckForUpdates), false));
+            list.Children.Add(interval);
+        }
+
+        private static StackPanel NumberLine(string text, int value, int min, int max, string unit, Action<int> commit)
         {
             var panel = new StackPanel();
             TextBlock label = Res.Text(text);
-            label.Margin = new Thickness(0, 12, 0, 8);
+            label.Margin = new Thickness(0, Spacing.Medium, 0, Spacing.Small);
             panel.Children.Add(label);
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
-            row.Children.Add(Kit.NumberBox(value, min, max, commit, 80));
-            TextBlock unit = Kit.Caption(Texts.Milliseconds);
-            unit.Margin = new Thickness(8, 0, 0, 0);
-            row.Children.Add(unit);
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, Spacing.Medium) };
+            TextBox box = Kit.NumberBox(value, min, max, commit, 80);
+            Kit.LabelFor(box, label);
+            row.Children.Add(box);
+            TextBlock unitText = Kit.Caption(unit);
+            unitText.Margin = Spacing.Left(Spacing.Small);
+            row.Children.Add(unitText);
             panel.Children.Add(row);
             panel.Children.Add(Kit.Separator(new Thickness(0)));
             return panel;

@@ -29,6 +29,7 @@ namespace AutoTrigger.Ui
                 openedByPress = !combo.IsDropDownOpen;
                 pressedAt = e.GetPosition(combo);
             };
+            // The release of the click that opened the list would select the item under the pointer; it counts only if the pointer moved.
             combo.PreviewMouseLeftButtonUp += (s, e) =>
             {
                 if (!openedByPress)
@@ -39,6 +40,8 @@ namespace AutoTrigger.Ui
             };
         }
 
+        // WPF UI gives the popup a 30 px shadow margin, so WPF nudges the list over its field instead of flipping it above.
+        // The list is placed here instead: below when it fits, otherwise above, never over the field.
         private static void PlaceItself(ComboBox combo)
         {
             combo.ApplyTemplate();
@@ -56,7 +59,9 @@ namespace AutoTrigger.Ui
             Thickness margin = child?.Margin ?? default;
             double left = -margin.Left * unit;
             double gap = offset.Y * unit;
+            // The callback works in device pixels, and WPF has already added VerticalOffset to the target.
             var below = new CustomPopupPlacement(new Point(left, targetSize.Height), PopupPrimaryAxis.Horizontal);
+            // The list itself must stay above a bottom taskbar; only its shadow may cover it.
             if (!TryRoom(combo, out double roomBelow, out double roomAbove, out double screenBelow)
                 || (popupSize.Height + gap <= roomBelow * unit && popupSize.Height + gap + margin.Bottom * unit <= screenBelow * unit)
                 || roomBelow >= roomAbove)

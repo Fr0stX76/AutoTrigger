@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Json;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Platform;
 
 namespace AutoTrigger.Tests
 {
@@ -285,6 +286,32 @@ namespace AutoTrigger.Tests
             Eq(1, paths.Count(p => p == @"C:\Program Files\Tray\tray.exe"), "one line when an instance passes both tests");
             Eq(paths.Count, paths.Distinct(StringComparer.OrdinalIgnoreCase).Count(), "no path listed twice");
             Eq(5, paths.Count, "five programs listed");
+        }
+
+        private static void UpdateVersions()
+        {
+            AppVersion candidate = AppVersion.ParseBuild("1.3.0 RC2");
+            AppVersion release = AppVersion.ParseBuild("1.3.0");
+            Check(candidate != null && candidate.IsCandidate && candidate.ToString() == "1.3.0", "release candidate read");
+            Check(AppVersion.ParseBuild("1.3.0-rc2").IsCandidate, "package form of a candidate read");
+            Check(AppVersion.ParseRelease("v1.3.0").IsNewerThan(candidate), "the release is newer than its candidate");
+            Check(!AppVersion.ParseRelease("v1.3.0").IsNewerThan(release), "same release: no update");
+            Check(AppVersion.ParseRelease("v1.3.1").IsNewerThan(release), "patch release is newer");
+            Check(AppVersion.ParseRelease("v1.10.0").IsNewerThan(AppVersion.ParseBuild("1.9.9")), "numbers compared as numbers");
+            Check(!AppVersion.ParseRelease("v1.2.9").IsNewerThan(release), "older release: no update");
+            Check(AppVersion.ParseRelease("1.4.0") != null, "tag without v accepted");
+            foreach (string bad in new[] { null, "", "v1.4", "v1.4.0-beta", "v1.4.0 ", "v\u0661.4.0", "v1.4.0/../x", "v123456.0.0", "latest" })
+                Check(AppVersion.ParseRelease(bad) == null, "release tag refused: " + (bad ?? "null"));
+
+            var s = new AppSettings { CheckForUpdates = false, UpdateCheckHours = 12 };
+            AppSettings back = SettingsJson.Read(SettingsJson.Write(s), new List<string>());
+            Check(!back.CheckForUpdates && back.UpdateCheckHours == 12, "update settings saved and read back");
+            AppSettings older = SettingsJson.Read(JsonValue.Parse("{\"version\":1}"), new List<string>());
+            Check(older.CheckForUpdates && older.UpdateCheckHours == AppSettings.DefaultUpdateCheckHours, "older settings: check on, default interval");
+            AppSettings clamped = SettingsJson.Read(JsonValue.Parse("{\"updateCheckHours\":0}"), new List<string>());
+            Eq(AppSettings.MinUpdateCheckHours, clamped.UpdateCheckHours, "interval kept in range");
+            Eq("https://github.com/Fr0stX76/AutoTrigger/releases/tag/v1.3.1",
+                UpdateCheck.ReleasePage(AppVersion.ParseRelease("v1.3.1")).AbsoluteUri, "release page built from the version");
         }
 
         private static void FastTrackSkipsEmptyAndSameApp()

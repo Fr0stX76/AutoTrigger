@@ -5,7 +5,9 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
@@ -19,6 +21,8 @@ namespace AutoTrigger.Ui
 {
     internal static class Kit
     {
+        public const double LabelWidth = 170;
+
         public const string IconPlus = "M10 4v12M4 10h12";
         public const string IconMinus = "M4 10h12";
         public const string IconMinusSmall = "M5 10h10";
@@ -86,7 +90,7 @@ namespace AutoTrigger.Ui
             {
                 var content = new StackPanel { Orientation = Orientation.Horizontal };
                 content.Children.Add(ControlIcon(icon));
-                content.Children.Add(new TextBlock { Text = text, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+                content.Children.Add(new TextBlock { Text = text, Margin = Spacing.Left(Spacing.Small), VerticalAlignment = VerticalAlignment.Center });
                 button.Content = content;
             }
             return button;
@@ -136,6 +140,19 @@ namespace AutoTrigger.Ui
 
         public static TextBlock Caption(string text) => Res.Text(text, 12);
 
+        public static TextBlock Link(Run text, Action clicked, double size = 14)
+        {
+            var link = new Hyperlink(text) { TextDecorations = null, Cursor = Cursors.Hand };
+            link.SetResourceReference(TextElement.ForegroundProperty, Res.AccentFill);
+            link.MouseEnter += (s, e) => link.TextDecorations = TextDecorations.Underline;
+            link.MouseLeave += (s, e) => link.TextDecorations = null;
+            link.Click += (s, e) => clicked();
+            TextBlock block = Res.Text(string.Empty, size);
+            block.Inlines.Clear();
+            block.Inlines.Add(link);
+            return block;
+        }
+
         public static TextBlock Wrapped(string text, double size = 14, string brush = Res.TextPrimary)
         {
             var block = Res.Text(text, size, null, brush);
@@ -158,7 +175,16 @@ namespace AutoTrigger.Ui
             text.Margin = new Thickness(0, 0, 0, 6);
             panel.Children.Add(text);
             panel.Children.Add(control);
+            LabelFor(control, text);
             return panel;
+        }
+
+        // Screen readers name a box or a list by the label next to it; buttons and switches carry their own name.
+        public static void LabelFor(UIElement control, UIElement label)
+        {
+            if (control is ButtonBase || !string.IsNullOrEmpty(AutomationProperties.GetName(control)))
+                return;
+            AutomationProperties.SetLabeledBy(control, label);
         }
 
         public static UiTextBox TextField(string text, Action<string> changed = null, string placeholder = null)
@@ -375,7 +401,7 @@ namespace AutoTrigger.Ui
             return list;
         }
 
-        public static Grid PairGrid(double labelWidth = 170, double gap = 24)
+        public static Grid PairGrid(double labelWidth = LabelWidth, double gap = Spacing.Section)
         {
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(labelWidth) });
@@ -399,6 +425,7 @@ namespace AutoTrigger.Ui
                 if (v.VerticalAlignment == VerticalAlignment.Stretch)
                     v.VerticalAlignment = VerticalAlignment.Center;
             }
+            LabelFor(value, label);
             Grid.SetRow(label, row);
             Grid.SetRow(value, row);
             Grid.SetColumn(value, 2);

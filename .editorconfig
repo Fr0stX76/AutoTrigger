@@ -4,7 +4,7 @@ root = true
 dotnet_diagnostic.CA1716.severity = none
 dotnet_diagnostic.CA1720.severity = none
 
-[src/AutoTrigger/App.cs]
+[src/AutoTrigger/App*.cs]
 dotnet_diagnostic.CA1001.severity = none
 
 [src/AutoTrigger.Core/Engine/EngineLoop.cs]

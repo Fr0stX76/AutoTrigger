@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -71,6 +72,7 @@ namespace AutoTrigger
             }
             catch (Exception ex)
             {
+                // Any startup failure ends in one clear message and a log entry instead of a crash dialog.
                 FailStart(ex);
             }
         }
@@ -107,51 +109,10 @@ namespace AutoTrigger
 
             _instance.Listen(() => Dispatcher.BeginInvoke(new Action(ShowWindow)));
             _commands = new CommandServer(CommandChannel.PipeName, HandleCommand, CommandPipe.CreateSecured);
+            CreateUpdateCheck();
         }
 
-        private void ApplyStartPause()
-        {
-            bool? paused = PausedAfter(_startCommand.Kind, _settings.MonitoringPaused);
-            if (paused == null || paused.Value == _settings.MonitoringPaused)
-                return;
-            _settings.MonitoringPaused = paused.Value;
-            _controller.SaveOnly();
-        }
-
-        private static bool? PausedAfter(CommandKind kind, bool paused)
-        {
-            switch (kind)
-            {
-                case CommandKind.Pause: return true;
-                case CommandKind.Resume: return false;
-                case CommandKind.Toggle: return !paused;
-                default: return null;
-            }
-        }
-
-        private Task<string> HandleCommand(Command command)
-        {
-            const string closing = "closing";
-            if (_exiting)
-                return Task.FromResult(closing);
-            if (command.RunsProfile)
-            {
-                var result = new TaskCompletionSource<string>();
-                _engine.RunProfileNamed(command.ProfileName, command.Event, "command line",
-                    found => result.TrySetResult(found ? CommandServer.Ok : "profile not found"));
-                return result.Task;
-            }
-            return Dispatcher.InvokeAsync(() =>
-            {
-                if (_exiting)
-                    return closing;
-                bool? paused = PausedAfter(command.Kind, _settings.MonitoringPaused);
-                if (paused != null && paused.Value != _settings.MonitoringPaused)
-                    SetMonitoringPaused(paused.Value);
-                return CommandServer.Ok;
-            }).Task;
-        }
-
+        // WPF gives scroll bars and combo boxes a context menu that Windows 11 does not show.
         private static void RemoveListContextMenus()
         {
             var noMenu = new ContextMenuEventHandler((sender, e) => e.Handled = true);
@@ -167,6 +128,7 @@ namespace AutoTrigger
             }
             catch (Exception)
             {
+                // AutoTrigger still runs without a log.
             }
             _version = ReadVersion();
             _exePath = Assembly.GetEntryAssembly()?.Location ?? string.Empty;
@@ -178,18 +140,20 @@ namespace AutoTrigger
             LoadResult loaded = _store.Load();
             _settings = loaded.Settings;
             Log.Level = _settings.LogLevel;
-            Log.Info($"AutoTrigger {_version} started ({_settings.Applications.Count} applications, {_settings.Profiles.Count} profiles)");
+            Log.Info($"AutoTrigger {_version} started ({CountText.Of(_settings.Applications.Count, "application")}, "
+                + $"{CountText.Of(_settings.Profiles.Count, "profile")})");
             foreach (string warning in loaded.Warnings)
                 Log.Warning(warning);
             foreach (ValidationIssue issue in SettingsValidator.Validate(_settings))
                 Log.Warning(issue.Message);
+            _store.RemoveOldCopies();
             return loaded;
         }
 
         private void CreateServices(string dataDir)
         {
             _controller = new SettingsController(_settings, _store, Dispatcher);
-            _icons = new AppIcons(Path.Combine(dataDir, "icons"), Dispatcher);
+            _icons = new AppIcons(Path.Combine(dataDir, "icons"), Dispatcher, _settings.Applications.Select(a => a.Path));
             _processes = new WindowsProcessSystem();
             var displayHardware = new WindowsDisplayHardware();
             _audio = new WindowsAudioHardware();
@@ -338,6 +302,7 @@ namespace AutoTrigger
             try
             {
                 _displayTimer?.Stop();
+                StopUpdateCheck();
                 _commands?.Dispose();
                 _hotkeys?.Dispose();
                 _menu?.Dispose();
@@ -351,6 +316,7 @@ namespace AutoTrigger
             }
             catch (Exception)
             {
+                // Best effort: AutoTrigger is already closing because of an error.
             }
             Log.Stop(TimeSpan.FromSeconds(2));
             try
@@ -359,12 +325,14 @@ namespace AutoTrigger
             }
             catch (Exception)
             {
+                // If even a message box fails, the log still has the details.
             }
             Shutdown(1);
         }
 
         private void OnEngineStateChanged()
         {
+            // Engine updates are coalesced: one window refresh per burst, at background priority.
             if (Interlocked.Exchange(ref _statePending, 1) == 1)
                 return;
             Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
@@ -412,20 +380,13 @@ namespace AutoTrigger
             }
         }
 
-        private void SetMonitoringPaused(bool paused)
-        {
-            _settings.MonitoringPaused = paused;
-            _controller.SaveOnly();
-            _engine.SetPaused(paused);
-        }
-
         private bool IsStartWithWindows()
         {
             try
             {
                 return StartupRegistration.IsEnabled(_exePath);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsRegistryError(ex))
             {
                 Log.Warning("Start with Windows cannot be read", ex);
                 return false;
@@ -441,12 +402,15 @@ namespace AutoTrigger
                 StartupRegistration.SetEnabled(_exePath, enable);
                 Log.Info(enable ? "Start with Windows turned on" : "Start with Windows turned off");
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsRegistryError(ex))
             {
                 Log.Error("Start with Windows could not be changed", ex);
                 MessageDialog.Show(_window, Texts.StartWithWindows, Texts.Format(Texts.StartupFailed, ex.Message), Texts.Ok);
             }
         }
+
+        private static bool IsRegistryError(Exception ex) =>
+            ex is SecurityException || ex is UnauthorizedAccessException || ex is IOException;
 
         private void Launch(AppEntry app)
         {
@@ -511,7 +475,7 @@ namespace AutoTrigger
                 Process.Start(new ProcessStartInfo(target, arguments ?? string.Empty) { UseShellExecute = true })?.Dispose();
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException || ex is IOException)
             {
                 if (logFailure)
                     Log.Error($"{target} cannot be opened", ex);
@@ -528,6 +492,7 @@ namespace AutoTrigger
             try
             {
                 _displayTimer?.Stop();
+                StopUpdateCheck();
                 _commands?.Dispose();
                 _hotkeys?.Dispose();
                 _menu?.Dispose();
@@ -545,6 +510,7 @@ namespace AutoTrigger
             }
             catch (Exception ex)
             {
+                // Exit must complete even if one part fails to close.
                 Log.Error("Error while closing", ex);
             }
             Log.Info("AutoTrigger closed");
@@ -561,6 +527,7 @@ namespace AutoTrigger
 
         private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
+            // A failing click or redraw is logged and the window keeps working.
             Log.Error("Unexpected error in the window", e.Exception);
             e.Handled = true;
         }
@@ -575,6 +542,7 @@ namespace AutoTrigger
             }
             catch (Exception)
             {
+                // The process is ending; if the message box fails, the log still has the details.
             }
         }
 

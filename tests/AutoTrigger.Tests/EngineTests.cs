@@ -255,10 +255,10 @@ namespace AutoTrigger.Tests
             return true;
         }
 
-        public void Kill(int pid)
+        public void Kill(int pid, long creationTime)
         {
             FakeProc p = Find(pid);
-            if (p == null)
+            if (p == null || (creationTime != 0 && creationTime != p.Creation))
                 return;
             if (p.Protected)
                 throw new Win32Exception(5);
@@ -410,6 +410,7 @@ namespace AutoTrigger.Tests
                 ("Match by path or file name", Matching),
                 ("Unreadable process", Unreadable),
                 ("Close program", CloseProgram),
+                ("Close program: Force waits its delay", CloseProgramForceDelay),
                 ("Run program failure continues", RunFailureContinues),
                 ("Display/audio skipped", HardwareSkipped),
                 ("Snapshot", SnapshotState),
@@ -449,11 +450,14 @@ namespace AutoTrigger.Tests
                 ("Display path changed by a driver reinstall", DisplayPathChanged),
                 ("Helpers", Helpers),
                 ("JSON round trip", JsonRoundTrip),
+                ("Settings written by 1.2.0 are kept", SettingsFrom120),
                 ("Reset to defaults", ResetDefaults),
+                ("Update check: versions and settings", UpdateVersions),
                 ("Sort and manual order", SortAndMove),
                 ("Delays in seconds", DelaysInSeconds),
                 ("Settings file recovery", StoreRecovery),
                 ("Settings file in use is never overwritten", LockedSettings),
+                ("Old settings copies: the 3 most recent are kept", OldSettingsCopies),
                 ("JSON numbers out of range", JsonNumberRange),
                 ("User folder hidden in the log", UserProfileHidden),
                 ("Display capabilities saved only when they change", SameCapabilities),
@@ -968,6 +972,27 @@ namespace AutoTrigger.Tests
             rig.Stop();
         }
 
+        private static void CloseProgramForceDelay()
+        {
+            var procs = new FakeProcessSystem(new FakeScheduler());
+            FakeProc forced = procs.Launch("/apps/Tray.exe");
+            forced.HasWindow = false;
+            FakeProc kept = procs.Launch("/apps/Helper.exe");
+            kept.HasWindow = false;
+            using (var executor = new ActionExecutor(procs))
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                ActionOutcome outcome = executor.ExecuteAsync(new CloseProgramAction { Target = "Tray", Force = true, ForceAfterSec = 1 }).Result;
+                Check(clock.ElapsedMilliseconds >= 950, "nothing to ask: Force still waits its delay");
+                Check(outcome.Result == ActionResult.Succeeded && procs.Killed.Contains(forced.Pid), "then the program is forced");
+
+                clock.Restart();
+                outcome = executor.ExecuteAsync(new CloseProgramAction { Target = "Helper", Force = false, ForceAfterSec = 1 }).Result;
+                Check(clock.ElapsedMilliseconds < 500 && outcome.Result == ActionResult.Failed && kept.Running,
+                    "without Force, a program with no window fails at once");
+            }
+        }
+
         private static void RunFailureContinues()
         {
             var s = NewSettings();
@@ -1190,6 +1215,9 @@ namespace AutoTrigger.Tests
             Eq("", CommandLine.ArgumentsOf(null), "null");
             Check(PathMatcher.SamePath("/Games/A.exe", "/games/a.EXE"), "case-insensitive");
             Check(PathMatcher.SamePath("\"/games/a.exe\"", "/games/a.exe"), "quotes ignored");
+            Eq("1 display", CountText.Of(1, "display"), "one: singular");
+            Eq("0 displays", CountText.Of(0, "display"), "zero: plural");
+            Eq("24 applications", CountText.Of(24, "application"), "many: plural");
         }
 
         private static void JsonRoundTrip()
@@ -1327,7 +1355,11 @@ namespace AutoTrigger.Tests
             s.WindowWidth = 1300;
             s.WindowHeight = 900;
             s.MonitoringPaused = true;
+            s.CheckForUpdates = false;
+            s.UpdateCheckHours = 72;
             s.ResetPreferences();
+            Eq(true, s.CheckForUpdates, "update check back on");
+            Eq(AppSettings.DefaultUpdateCheckHours, s.UpdateCheckHours, "update check interval");
             Eq(false, s.StartMinimized, "start minimized");
             Eq(false, s.CloseToTray, "close to tray");
             Eq(ThemeMode.Auto, s.Theme, "theme");
@@ -1659,7 +1691,16 @@ namespace AutoTrigger.Tests
 
             Check(Throws(() => AutoActionsImport.Read("{ \"name\": 1 }")), "not AutoActions settings: refused");
             Check(Throws(() => AutoActionsImport.Read("{ not json")), "not JSON: refused");
-            Check(Throws(() => AutoActionsImport.Read(json.Replace("CloseProgramAction", "TeleportAction"))), "unknown action type: refused");
+            ImportResult teleport = AutoActionsImport.Read(json.Replace("CloseProgramAction", "TeleportAction"));
+            Profile teleportZeta = teleport.Profiles.First(p => p.Name == zeta.Name);
+            Eq("AutoActions.TeleportAction", (teleportZeta.OnClose[0] as UnknownAction)?.TypeName, "unknown action type: kept as an unknown action");
+            Eq(6, teleport.ActionCount, "unknown action type: the rest is imported");
+            Check(teleport.Warnings.Any(w => w.Contains("TeleportAction")), "unknown action type: noted");
+            var withUnknown = new AppSettings();
+            withUnknown.Profiles.AddRange(teleport.Profiles);
+            AppSettings saved = SettingsJson.Read(SettingsJson.Write(withUnknown), new List<string>());
+            Eq("AutoActions.TeleportAction", (saved.Profiles.First(p => p.Name == zeta.Name).OnClose[0] as UnknownAction)?.TypeName,
+                "unknown action type: kept after saving");
         }
 
         private static bool Throws(Action action)

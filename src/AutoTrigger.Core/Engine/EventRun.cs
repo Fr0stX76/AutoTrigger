@@ -122,6 +122,7 @@ namespace AutoTrigger.Core.Engine
 
             PlannedAction planned = _plan[_next];
             long now = _scheduler.NowMs;
+            // A delay counts from the start of the previous action, so a slow action does not push back the ones after it.
             long due = _fast ? now : _previousStart + planned.DelayMs;
             if (due > now)
             {
@@ -158,6 +159,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // An executor that throws instead of returning a task still gives an outcome, so the run cannot stall.
                 task = Task.FromResult(ActionOutcome.Failure(ex.Message));
             }
             task.ContinueWith(t =>
@@ -190,6 +192,7 @@ namespace AutoTrigger.Core.Engine
                     break;
             }
 
+            // A cancelled or fast-tracked run can still receive the outcome of an action it no longer waits for.
             if (_running != planned)
                 return;
 

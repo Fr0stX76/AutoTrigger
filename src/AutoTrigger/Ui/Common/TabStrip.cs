@@ -15,7 +15,7 @@ namespace AutoTrigger.Ui
         {
             BorderThickness = new Thickness(0, 0, 0, 1);
             SetResourceReference(BorderBrushProperty, Res.Divider);
-            var strip = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(16, 0, 16, 0) };
+            var strip = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(Spacing.Large, 0, Spacing.Large, 0) };
             int index = 0;
             foreach (string name in names)
             {

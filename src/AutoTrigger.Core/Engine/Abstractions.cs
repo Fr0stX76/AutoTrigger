@@ -47,7 +47,8 @@ namespace AutoTrigger.Core.Engine
 
         bool RequestClose(int pid);
 
-        void Kill(int pid);
+        // creationTime 0 skips the check that the pid still belongs to the same process.
+        void Kill(int pid, long creationTime);
 
         string GetCommandLine(int pid);
 

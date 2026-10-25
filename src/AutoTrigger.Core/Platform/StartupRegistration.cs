@@ -17,6 +17,7 @@ namespace AutoTrigger.Core.Platform
                 if (!(run?.GetValue(ValueName) is string command) || !PathMatcher.SamePath(ExeOf(command), exePath))
                     return false;
             }
+            // Task Manager's Startup tab turns an entry off here without removing it from Run.
             using (RegistryKey approved = Registry.CurrentUser.OpenSubKey(ApprovedKey, false))
             {
                 if (approved?.GetValue(ValueName) is byte[] state && state.Length > 0 && (state[0] & 1) == 1)
@@ -34,6 +35,7 @@ namespace AutoTrigger.Core.Platform
                 else if (run.GetValue(ValueName) != null)
                     run.DeleteValue(ValueName, false);
             }
+            // Clears any mark left by Task Manager, so the Run entry alone decides.
             using (RegistryKey approved = Registry.CurrentUser.OpenSubKey(ApprovedKey, true))
             {
                 if (approved?.GetValue(ValueName) != null)

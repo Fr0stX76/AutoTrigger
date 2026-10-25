@@ -6,6 +6,7 @@ namespace AutoTrigger.Core.Json
 {
     internal sealed class JsonParser
     {
+        // Deep nesting would overflow the stack; settings never nest this deep.
         private const int MaxDepth = 256;
 
         private readonly string _text;

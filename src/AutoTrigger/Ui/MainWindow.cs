@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Threading;
 using FluentWindow = Wpf.Ui.Controls.FluentWindow;
 using UiButton = Wpf.Ui.Controls.Button;
@@ -24,6 +25,8 @@ namespace AutoTrigger.Ui
         private readonly TabStrip _tabs;
         private readonly Border _host = new Border();
         private readonly FrameworkElement[] _pages;
+        private readonly Run _updateText = new Run();
+        private TextBlock _update;
 
         public MainWindow(StatusPage status, FrameworkElement[] otherPages, string version, double width, double height)
         {
@@ -81,11 +84,19 @@ namespace AutoTrigger.Ui
 
         public event Action TabChanged;
 
+        public event Action UpdateClicked;
+
         public int CurrentTab { get; private set; }
 
         public StatusPage Status { get; }
 
         public void ShowTab(int index) => _tabs.Select(index);
+
+        public void ShowUpdate(string version)
+        {
+            _updateText.Text = version == null ? string.Empty : Texts.Format(Texts.UpdateAvailable, version);
+            _update.Visibility = version == null ? Visibility.Collapsed : Visibility.Visible;
+        }
 
         public void Bring()
         {
@@ -109,13 +120,18 @@ namespace AutoTrigger.Ui
             var about = Ghost(Texts.About);
             about.Click += (s, e) => AboutClicked?.Invoke();
             var versionText = Res.Text(version, 12);
-            versionText.Margin = new Thickness(12, 0, 0, 0);
+            versionText.Margin = Spacing.Left(Spacing.Medium);
+
+            _update = Kit.Link(_updateText, () => UpdateClicked?.Invoke(), 12);
+            _update.Margin = Spacing.Left(Spacing.Large);
+            _update.Visibility = Visibility.Collapsed;
 
             var row = new StackPanel { Orientation = Orientation.Horizontal };
             row.Children.Add(about);
             row.Children.Add(versionText);
+            row.Children.Add(_update);
 
-            var border = new Border { BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(24, 8, 24, 8), Child = row };
+            var border = new Border { BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(Spacing.Section, Spacing.Small, Spacing.Section, Spacing.Small), Child = row };
             border.SetResourceReference(Border.BorderBrushProperty, Res.Divider);
             return border;
         }

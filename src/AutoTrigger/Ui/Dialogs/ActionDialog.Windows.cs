@@ -42,7 +42,7 @@ namespace AutoTrigger.Ui
 
             _windowsPanel.Children.Add(Kit.Field(Texts.AudioOutputDevice, DeviceCombo(true)));
             _windowsPanel.Children.Add(Kit.Field(Texts.AudioInputDevice, DeviceCombo(false)));
-            _windowsPanel.Children.Add(Kit.Separator(new Thickness(0, 18, 0, 0)));
+            _windowsPanel.Children.Add(Kit.Separator(Spacing.Top(Spacing.Field)));
             _windowsPanel.Children.Add(Kit.Field(Texts.PowerPlan, PlanCombo()));
             _windowsPanel.Children.Add(Kit.Field(Texts.ScreenSaver, ScreenSaverRow()));
         }
@@ -61,6 +61,7 @@ namespace AutoTrigger.Ui
             }
             catch (Exception ex)
             {
+                // Audio devices come from COM; when they cannot be listed, the saved device is still shown.
                 Log.Warning("Audio devices cannot be listed", ex);
             }
 
@@ -125,6 +126,7 @@ namespace AutoTrigger.Ui
             }
             catch (Exception ex)
             {
+                // When the plans cannot be listed, the saved plan is still shown.
                 Log.Warning("Power plans cannot be listed", ex);
             }
 
@@ -159,7 +161,7 @@ namespace AutoTrigger.Ui
             })
             {
                 bool? value = choice.Key;
-                var button = new UiButton { Content = choice.Value, MinWidth = 96, Margin = new Thickness(0, 0, 8, 0), Tag = value };
+                var button = new UiButton { Content = choice.Value, MinWidth = 96, Margin = Spacing.Right(Spacing.Small), Tag = value };
                 button.Click += (s, e) =>
                 {
                     _screenSaverOn = value;

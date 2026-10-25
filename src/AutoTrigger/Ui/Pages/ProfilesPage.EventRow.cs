@@ -77,7 +77,7 @@ namespace AutoTrigger.Ui
                     VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
                     Content = _dropArea,
                     Margin = new Thickness(2, 0, 0, 0),
-                    Padding = new Thickness(0, 0, 0, 8),
+                    Padding = new Thickness(0, 0, 0, Spacing.Small),
                 };
                 _scroller.PreviewMouseWheel += (s, e) =>
                 {
@@ -192,7 +192,7 @@ namespace AutoTrigger.Ui
                 grid.Children.Add(CardHeader(action, index, issue));
 
                 TextBlock name = Res.Text(ActionText.Summary(action, _page.Settings), 14, FontWeights.SemiBold);
-                name.Margin = new Thickness(0, 4, 0, 0);
+                name.Margin = Spacing.Top(Spacing.Tight);
                 string details = ActionText.Details(action, _page.Settings);
                 if (!string.IsNullOrEmpty(details))
                     name.ToolTip = details;
@@ -219,7 +219,7 @@ namespace AutoTrigger.Ui
 
                 string typeText = issue != null ? IssueText(issue.Kind) : ActionText.TypeName(action);
                 TextBlock type = Res.Text(typeText, 12, null, issue != null ? Res.Critical : Res.TextPrimary);
-                type.Margin = new Thickness(8, 0, 4, 0);
+                type.Margin = new Thickness(Spacing.Small, 0, Spacing.Tight, 0);
                 Grid.SetColumn(type, 1);
                 header.Children.Add(type);
 
@@ -275,7 +275,7 @@ namespace AutoTrigger.Ui
                     action.DelayMs = value;
                     _page._settings.Commit();
                 });
-                box.Padding = new Thickness(8, 4, 8, 4);
+                box.Padding = new Thickness(Spacing.Small, Spacing.Tight, Spacing.Small, Spacing.Tight);
                 box.MinHeight = 0;
                 box.Margin = new Thickness(6, 0, 6, 0);
                 System.Windows.Automation.AutomationProperties.SetName(box, Texts.Delay);

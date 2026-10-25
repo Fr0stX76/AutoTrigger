@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using AutoTrigger.Core.Engine;
@@ -35,19 +36,30 @@ namespace AutoTrigger.Core.Platform
                     return false;
                 if (keys.Equals(_sending))
                     return true;
+                // WM_HOTKEY can arrive just after the keys were sent: a Hotkey action must not trigger AutoTrigger's own shortcut.
                 return keys.Equals(_lastSent) && _clock.ElapsedMilliseconds - _lastSentAt < SentEchoMs;
             }
         }
 
-        public bool FrontWindowRunsAsAdmin()
+        public bool FrontWindowRunsAsAdmin(out string program)
         {
+            program = null;
             if (_selfAsAdmin.Value)
                 return false;
             IntPtr window = NativeMethods.GetForegroundWindow();
             if (window == IntPtr.Zero)
                 return false;
             _ = NativeMethods.GetWindowThreadProcessId(window, out int pid);
-            return pid != 0 && RunsAsAdmin(pid);
+            if (pid == 0)
+                return false;
+            using (SafeKernelHandle process = OpenForQuery(pid))
+            {
+                if (!RunsAsAdmin(process))
+                    return false;
+                string path = WindowsProcessSystem.ImagePath(process);
+                program = path != null ? Path.GetFileName(path) : null;
+                return true;
+            }
         }
 
         public bool WaitForHeldKeys(int timeoutMs)
@@ -103,6 +115,7 @@ namespace AutoTrigger.Core.Platform
         {
             if (keys == null || !keys.Ctrl || !keys.Alt)
                 return false;
+            // Ctrl+Alt is how Windows sees AltGr: ask the layout whether these keys type a character.
             var state = new byte[256];
             state[0x11] = 0x80;
             state[0x12] = 0x80;
@@ -180,20 +193,21 @@ namespace AutoTrigger.Core.Platform
         private static bool SelfRunsAsAdmin()
         {
             using (Process self = Process.GetCurrentProcess())
-                return RunsAsAdmin(self.Id);
+            using (SafeKernelHandle process = OpenForQuery(self.Id))
+                return RunsAsAdmin(process);
         }
 
-        private static bool RunsAsAdmin(int pid)
+        private static SafeKernelHandle OpenForQuery(int pid) =>
+            NativeMethods.OpenProcess(NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+
+        private static bool RunsAsAdmin(SafeKernelHandle process)
         {
-            using (SafeKernelHandle process = NativeMethods.OpenProcess(NativeMethods.PROCESS_QUERY_LIMITED_INFORMATION, false, pid))
+            if (process.IsInvalid || !Native.OpenProcessToken(process, Native.TOKEN_QUERY, out SafeKernelHandle token))
+                return false;
+            using (token)
             {
-                if (process.IsInvalid || !Native.OpenProcessToken(process, Native.TOKEN_QUERY, out SafeKernelHandle token))
-                    return false;
-                using (token)
-                {
-                    return Native.GetTokenInformation(token, Native.TokenElevation, out int elevated, sizeof(int), out _)
-                        && elevated != 0;
-                }
+                return Native.GetTokenInformation(token, Native.TokenElevation, out int elevated, sizeof(int), out _)
+                    && elevated != 0;
             }
         }
 

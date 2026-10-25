@@ -67,6 +67,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // Audio devices are COM objects; any failure is reported and the other parts of the action still apply.
                 result.Failures.Add($"{kind} device: {ex.Message}");
             }
         }
@@ -97,6 +98,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // A policy or a removed plan can refuse the change; it is reported and the other parts still apply.
                 result.Failures.Add($"power plan {name}: {ex.Message}");
             }
         }
@@ -126,6 +128,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // Windows can refuse the change; it is reported and the other parts still apply.
                 result.Failures.Add($"screen saver: {ex.Message}");
             }
         }

@@ -133,6 +133,7 @@ namespace AutoTrigger.Core.Platform
             }
             catch (Exception ex)
             {
+                // DXGI gives the exact rates (59.94 Hz); without it, the whole-hertz rates from Windows are used.
                 Log.Detailed($"{gdiName}: DXGI modes cannot be read ({ex.Message})");
             }
             if (rates == null || rates.Count == 0)

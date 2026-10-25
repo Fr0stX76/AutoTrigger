@@ -80,7 +80,8 @@ namespace AutoTrigger
         public const string UnknownCommand = "unknown command";
         public const string Failed = "failed";
         public const string NoAnswer = "no answer";
-        public const int MaxInstances = 4;
+        // One instance: .NET then creates the pipe with FILE_FLAG_FIRST_PIPE_INSTANCE, so no other program can own the name first.
+        public const int MaxInstances = 1;
         private const int DrainTimeoutMs = 2000;
 
         private readonly string _pipeName;
@@ -110,10 +111,22 @@ namespace AutoTrigger
             {
                 try
                 {
+                    // The same instance serves every client: the name stays owned for the whole session, and a new
+                    // instance never has to be created while the previous client is still closing its end.
                     using (NamedPipeServerStream pipe = _createPipe(_pipeName))
                     {
-                        await pipe.WaitForConnectionAsync(_stop.Token).ConfigureAwait(false);
-                        await ServeAsync(pipe).ConfigureAwait(false);
+                        while (true)
+                        {
+                            await pipe.WaitForConnectionAsync(_stop.Token).ConfigureAwait(false);
+                            try
+                            {
+                                await ServeAsync(pipe).ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                pipe.Disconnect();
+                            }
+                        }
                     }
                 }
                 catch (OperationCanceledException)
@@ -122,6 +135,7 @@ namespace AutoTrigger
                 }
                 catch (Exception ex)
                 {
+                    // A broken connection must not stop the listener.
                     Log.Warning("Command line request failed: " + ex.Message);
                     await Task.Delay(500).ConfigureAwait(false);
                 }
@@ -134,6 +148,7 @@ namespace AutoTrigger
             using (StreamReader reader = CommandWire.Reader(pipe))
             {
                 Task<string> read = reader.ReadLineAsync();
+                // A client that connects and sends nothing is dropped, so it cannot block the next one.
                 if (!await Within(read, _readTimeoutMs).ConfigureAwait(false))
                 {
                     _ = read.ContinueWith(t => t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
@@ -162,6 +177,7 @@ namespace AutoTrigger
             }
             catch (Exception ex)
             {
+                // A handler that throws still sends an answer back to the waiting client.
                 Log.Error("Command line request failed", ex);
                 return Failed;
             }
@@ -208,6 +224,7 @@ namespace AutoTrigger
             get
             {
                 using (Process self = Process.GetCurrentProcess())
+                    // One pipe per Windows session, so each signed-in user reaches their own AutoTrigger.
                     return @"AutoTrigger.7f3c1d2e.Commands." + self.SessionId;
             }
         }

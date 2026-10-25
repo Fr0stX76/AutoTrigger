@@ -17,6 +17,7 @@ namespace AutoTrigger.Ui
             window.Height = height;
             if (keepCentered && !double.IsNaN(window.Top))
                 window.Top += (old - height) / 2;
+            // A dialog that grows, such as when the action type changes, may cross the screen edge.
             WindowPlacement.KeepOnScreen(window);
         }
     }

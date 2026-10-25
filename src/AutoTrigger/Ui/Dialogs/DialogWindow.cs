@@ -12,9 +12,7 @@ namespace AutoTrigger.Ui
 {
     internal abstract class DialogWindow : FluentWindow
     {
-        protected const double Spacing = 24;
         private const double ButtonWidth = 120;
-        private const double ButtonGap = 8;
 
         private readonly Grid _root = new Grid();
 
@@ -48,7 +46,7 @@ namespace AutoTrigger.Ui
 
         protected void SetBody(FrameworkElement body)
         {
-            body.Margin = new Thickness(Spacing, 12, Spacing, Spacing);
+            body.Margin = new Thickness(Spacing.Section, Spacing.Medium, Spacing.Section, Spacing.Section);
             Grid.SetRow(body, 1);
             _root.Children.Add(body);
         }
@@ -58,7 +56,7 @@ namespace AutoTrigger.Ui
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
             for (int i = 0; i < right.Length; i++)
             {
-                right[i].Margin = new Thickness(i == 0 ? 0 : ButtonGap, 0, 0, 0);
+                right[i].Margin = Spacing.Left(i == 0 ? 0 : Spacing.Small);
                 buttons.Children.Add(right[i]);
             }
             var row = new Grid();
@@ -69,7 +67,7 @@ namespace AutoTrigger.Ui
             Grid.SetColumn(buttons, 1);
             row.Children.Add(buttons);
 
-            var footer = new Border { Padding = new Thickness(Spacing, 20, Spacing, 20), BorderThickness = new Thickness(0, 1, 0, 0), Child = row };
+            var footer = new Border { Padding = Spacing.Panel, BorderThickness = new Thickness(0, 1, 0, 0), Child = row };
             footer.SetResourceReference(Border.BackgroundProperty, Res.Layer);
             footer.SetResourceReference(Border.BorderBrushProperty, Res.Divider);
             Grid.SetRow(footer, 2);

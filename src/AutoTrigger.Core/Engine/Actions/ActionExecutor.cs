@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -74,6 +75,7 @@ namespace AutoTrigger.Core.Engine
             }
         }
 
+        // Run program, close requests and Hotkey keys go out in the order they were asked for, even across runs.
         private Task<T> InOrder<T>(Func<T> work)
         {
             lock (_orderLock)
@@ -97,6 +99,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
+                // Any failure becomes a logged outcome; nothing escapes to the engine.
                 Log.Detailed("Action error details: " + ex);
                 return ActionOutcome.Failure(ex.Message);
             }
@@ -104,6 +107,7 @@ namespace AutoTrigger.Core.Engine
 
         private async Task<ActionOutcome> HardwareAsync(ProfileAction action)
         {
+            // One display or Windows settings change at a time, so two profiles never change a monitor half each.
             await _hardware.WaitAsync(_shutdown.Token).ConfigureAwait(false);
             try
             {
@@ -132,9 +136,14 @@ namespace AutoTrigger.Core.Engine
             if (action.Keys == null || !action.Keys.IsSet)
                 return ActionOutcome.Failure("no keyboard shortcut set");
             string keys = KeyNames.Readable(action.Keys);
+            // Keys still held, such as the shortcut that ran the profile, would mix with the keys sent.
             bool released = _keyboard.WaitForHeldKeys(HeldKeysWaitMs);
-            if (_keyboard.FrontWindowRunsAsAdmin())
-                return ActionOutcome.Failure($"{keys} not sent: the window in front runs as administrator, and Windows blocks keys sent to it");
+            // Windows drops keys sent to a window that runs as administrator (UIPI); say so instead of reporting success.
+            if (_keyboard.FrontWindowRunsAsAdmin(out string program))
+            {
+                string front = program == null ? "the window in front" : $"the window in front ({program})";
+                return ActionOutcome.Failure($"{keys} not sent: {front} runs as administrator, and Windows blocks keys sent to it");
+            }
             _keyboard.Press(action.Keys, KeyHoldMs);
             return ActionOutcome.Success(released ? keys + " sent"
                 : $"{keys} sent while Ctrl, Alt, Shift or Windows was still held down after {HeldKeysWaitMs / 1000} s");
@@ -152,7 +161,7 @@ namespace AutoTrigger.Core.Engine
             {
                 started = _processes.Start(path, action.Arguments ?? string.Empty, folder, action.HoldNext);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException || ex is IOException)
             {
                 return ActionOutcome.Failure($"cannot start '{path}': {ex.Message}");
             }
@@ -225,6 +234,7 @@ namespace AutoTrigger.Core.Engine
 
             foreach (ProcessDetails p in request.Instances)
             {
+                // WM_CLOSE first, so the program can save and exit on its own; it is ended by force only if asked.
                 if (_processes.RequestClose(p.Pid))
                     request.Asked++;
             }
@@ -236,7 +246,8 @@ namespace AutoTrigger.Core.Engine
             string exeName = request.ExeName;
             List<ProcessDetails> instances = request.Instances;
             var stopwatch = Stopwatch.StartNew();
-            int waitMs = request.Asked > 0 ? action.ForceAfterSec * 1000 : 0;
+            // With Force, the delay is a grace period even when no window could be asked.
+            int waitMs = request.Asked > 0 || action.Force ? action.ForceAfterSec * 1000 : 0;
             List<ProcessDetails> remaining = StillRunning(instances);
             while (remaining.Count > 0 && stopwatch.ElapsedMilliseconds < waitMs)
             {
@@ -246,13 +257,13 @@ namespace AutoTrigger.Core.Engine
 
             int closed = instances.Count - remaining.Count;
             if (remaining.Count == 0)
-                return ActionOutcome.Success(Plural(closed, "instance") + " closed");
+                return ActionOutcome.Success(CountText.Of(closed, "instance") + " closed");
 
             if (!action.Force)
             {
                 string why = request.Asked == 0
                     ? $"{exeName} has no window to close; turn on 'Force' to end it"
-                    : $"{Plural(remaining.Count, "instance")} of {exeName} still running after {action.ForceAfterSec} s; 'Force' is off";
+                    : $"{CountText.Of(remaining.Count, "instance")} of {exeName} still running after {action.ForceAfterSec} s; 'Force' is off";
                 return ActionOutcome.Failure(why);
             }
 
@@ -261,9 +272,9 @@ namespace AutoTrigger.Core.Engine
             {
                 try
                 {
-                    _processes.Kill(p.Pid);
+                    _processes.Kill(p.Pid, p.CreationTime);
                 }
-                catch (Exception ex)
+                catch (Win32Exception ex)
                 {
                     errors.Add($"pid {p.Pid}: {ex.Message}");
                 }
@@ -271,7 +282,7 @@ namespace AutoTrigger.Core.Engine
             if (errors.Count > 0)
                 return ActionOutcome.Failure($"could not end {exeName} ({string.Join("; ", errors)}). "
                     + "A program run as administrator cannot be ended by AutoTrigger.");
-            return ActionOutcome.Success($"{Plural(instances.Count, "instance")} closed, {remaining.Count} forced");
+            return ActionOutcome.Success($"{CountText.Of(instances.Count, "instance")} closed, {remaining.Count} forced");
         }
 
         private List<ProcessDetails> StillRunning(List<ProcessDetails> processes)
@@ -302,8 +313,6 @@ namespace AutoTrigger.Core.Engine
         }
 
         private static bool HasFolder(string target) => target.IndexOf('\\') >= 0 || target.IndexOf('/') >= 0;
-
-        private static string Plural(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
 
         public void Dispose()
         {

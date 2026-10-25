@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -57,7 +58,7 @@ namespace AutoTrigger
             {
                 found = AutoActionsLocator.FindSettingsFile(_processes);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is InvalidOperationException || ex is Win32Exception)
             {
                 Log.Detailed("AutoActions could not be looked for: " + ex.Message);
             }
@@ -99,8 +100,9 @@ namespace AutoTrigger
         private static void LogImport(ImportResult result, string file, string backup)
         {
             string copied = backup != null ? $"; previous settings copied to {Path.GetFileName(backup)}" : string.Empty;
-            Log.Info($"Imported from AutoActions ({file}): {result.Applications.Count} applications, {result.Profiles.Count} profiles, "
-                + $"{result.ActionCount} actions, {result.Displays.Count} displays{copied}");
+            Log.Info($"Imported from AutoActions ({file}): {CountText.Of(result.Applications.Count, "application")}, "
+                + $"{CountText.Of(result.Profiles.Count, "profile")}, {CountText.Of(result.ActionCount, "action")}, "
+                + $"{CountText.Of(result.Displays.Count, "display")}{copied}");
             foreach (string warning in result.Warnings)
                 Log.Warning("Import: " + warning);
         }
@@ -108,8 +110,9 @@ namespace AutoTrigger
         private static string ImportSummary(ImportResult result)
         {
             const int shownNotes = 8;
-            var text = new StringBuilder(Texts.Format(Texts.ImportDone,
-                result.Applications.Count, result.Profiles.Count, result.ActionCount, result.Displays.Count));
+            var text = new StringBuilder(Texts.Format(Texts.ImportDone, CountText.Of(result.Applications.Count, "application"),
+                CountText.Of(result.Profiles.Count, "profile"), CountText.Of(result.ActionCount, "action"),
+                CountText.Of(result.Displays.Count, "display")));
             List<string> programs = ProgramsStarted(result);
             if (programs.Count > 0)
             {
@@ -149,7 +152,7 @@ namespace AutoTrigger
             {
                 return AutoActionsLocator.IsRunning();
             }
-            catch (Exception)
+            catch (Exception ex) when (ex is InvalidOperationException || ex is Win32Exception)
             {
                 return false;
             }

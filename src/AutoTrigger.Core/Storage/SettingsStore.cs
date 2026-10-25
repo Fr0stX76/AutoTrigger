@@ -39,6 +39,9 @@ namespace AutoTrigger.Core.Storage
         private const int SaveDelayMs = 500;
         private const int ReadAttempts = 5;
         private const int ReadRetryMs = 200;
+        private const int KeptCopies = 3;
+
+        private static readonly string[] CopyPatterns = { "settings.before-import-*.json", "settings.invalid-*.json" };
 
         private readonly object _saveLock = new object();
         private Timer _debounce;
@@ -77,6 +80,7 @@ namespace AutoTrigger.Core.Storage
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
+                // A file another program holds is never written over: its content would be lost.
                 _readOnly = true;
                 result.Settings = new AppSettings();
                 result.Source = LoadSource.Locked;
@@ -95,11 +99,22 @@ namespace AutoTrigger.Core.Storage
             }
             catch (Exception ex)
             {
+                // A damaged or hand-edited file must never stop AutoTrigger from starting: it is set aside below.
                 Log.Error($"settings.json cannot be read: {ex.Message}");
             }
 
             string moved = SetAside(FilePath);
             result.Settings = new AppSettings();
+            if (moved == null)
+            {
+                // The damaged file is still in place: saving would overwrite it, and it may be the only copy.
+                _readOnly = true;
+                result.Source = LoadSource.Locked;
+                result.Message = "settings.json could not be read, nor set aside. "
+                    + "AutoTrigger started without your settings and will not save any change until it is restarted.";
+                Log.Error(result.Message);
+                return result;
+            }
             result.Source = LoadSource.Reset;
             result.Message = $"settings.json could not be read and was set aside ({Path.GetFileName(moved)}). "
                 + "AutoTrigger started with empty settings.";
@@ -126,7 +141,7 @@ namespace AutoTrigger.Core.Storage
             {
                 File.Delete(oldBackup);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
                 Log.Warning($"{OldBackupName} could not be deleted: {ex.Message}");
             }
@@ -134,6 +149,7 @@ namespace AutoTrigger.Core.Storage
 
         private static string ReadWithRetry(string path)
         {
+            // Editors, antivirus and sync tools hold the file for a moment; retrying avoids a false 'in use'.
             for (int attempt = 1; ; attempt++)
             {
                 try
@@ -147,6 +163,7 @@ namespace AutoTrigger.Core.Storage
             }
         }
 
+        // Null when the file can be neither moved nor copied.
         private static string SetAside(string path)
         {
             string target = Path.Combine(Path.GetDirectoryName(path),
@@ -154,19 +171,21 @@ namespace AutoTrigger.Core.Storage
             try
             {
                 File.Move(path, target);
+                return target;
             }
-            catch (Exception)
+            catch (Exception moveError) when (moveError is IOException || moveError is UnauthorizedAccessException)
             {
                 try
                 {
                     File.Copy(path, target, true);
+                    return target;
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
                 {
                     Log.Error($"Could not set aside {path}: {ex.Message}");
+                    return null;
                 }
             }
-            return target;
         }
 
         private static string Serialize(AppSettings settings) => SettingsJson.Write(settings).ToJson(true) + "\r\n";
@@ -178,6 +197,7 @@ namespace AutoTrigger.Core.Storage
                 if (_readOnly)
                     return;
                 System.IO.Directory.CreateDirectory(Directory);
+                // Write a temporary file, then swap it in: a crash or power loss never leaves a half-written file.
                 string temp = FilePath + ".tmp";
                 byte[] bytes = new UTF8Encoding(false).GetBytes(json);
                 using (var fs = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -219,6 +239,31 @@ namespace AutoTrigger.Core.Storage
             }
         }
 
+        // The copies made before an import or of a damaged file would pile up; the most recent of each kind stay.
+        public void RemoveOldCopies()
+        {
+            if (_readOnly || !System.IO.Directory.Exists(Directory))
+                return;
+            foreach (string pattern in CopyPatterns)
+            {
+                try
+                {
+                    string[] copies = System.IO.Directory.GetFiles(Directory, pattern);
+                    // The date and time in the names sort them from oldest to newest.
+                    Array.Sort(copies, StringComparer.OrdinalIgnoreCase);
+                    for (int i = 0; i < copies.Length - KeptCopies; i++)
+                    {
+                        File.Delete(copies[i]);
+                        Log.Info($"Old settings copy removed: {Path.GetFileName(copies[i])}");
+                    }
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    Log.Warning($"Old settings copies cannot be removed: {ex.Message}");
+                }
+            }
+        }
+
         public string BackupBeforeImport()
         {
             FlushPending();
@@ -257,6 +302,7 @@ namespace AutoTrigger.Core.Storage
                 }
                 catch (Exception ex)
                 {
+                    // Timer thread: a failed save is logged, and the next change tries again.
                     Log.Error("Settings could not be saved", ex);
                 }
             }

@@ -27,7 +27,7 @@ namespace AutoTrigger.Ui
             _owner = owner;
             Grid.SetIsSharedSizeScope(_cards, true);
             this.Bind(BackgroundProperty, Res.Layer);
-            var root = new Grid { Margin = new Thickness(32, 24, 32, 24) };
+            var root = new Grid { Margin = Spacing.PageMargin };
             root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             root.Children.Add(Kit.Heading(Texts.TabDisplays));
@@ -36,7 +36,7 @@ namespace AutoTrigger.Ui
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Content = _cards,
-                Margin = new Thickness(0, 12, 0, 0),
+                Margin = Spacing.Top(Spacing.Medium),
             };
             Grid.SetRow(scroller, 1);
             root.Children.Add(scroller);
@@ -108,7 +108,7 @@ namespace AutoTrigger.Ui
 
             Border card = Res.Card(content, new Thickness(0));
             card.Width = 560;
-            card.Margin = new Thickness(0, 0, 16, 16);
+            card.Margin = new Thickness(0, 0, Spacing.Large, Spacing.Large);
             return card;
         }
 
@@ -136,7 +136,7 @@ namespace AutoTrigger.Ui
             header.Children.Add(title);
 
             TextBlock managedLabel = Res.Text(Texts.Managed);
-            managedLabel.Margin = new Thickness(0, 0, 12, 0);
+            managedLabel.Margin = Spacing.Right(Spacing.Medium);
             Grid.SetColumn(managedLabel, 2);
             header.Children.Add(managedLabel);
 
@@ -206,7 +206,7 @@ namespace AutoTrigger.Ui
                 var delete = Kit.Button(Texts.Delete, Kit.IconMinus);
                 delete.Appearance = Wpf.Ui.Controls.ControlAppearance.Danger;
                 delete.Foreground = Brushes.White;
-                delete.Margin = new Thickness(8, 0, 0, 0);
+                delete.Margin = Spacing.Left(Spacing.Small);
                 delete.Click += (s, e) => RemoveDisplay(entry, name);
                 DockPanel.SetDock(delete, Dock.Left);
                 buttons.Children.Add(delete);
@@ -244,7 +244,7 @@ namespace AutoTrigger.Ui
                 Height = 10,
                 StrokeThickness = 1.5,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 8, 0),
+                Margin = Spacing.Right(Spacing.Small),
             };
             if (on)
                 dot.SetResourceReference(Shape.FillProperty, Res.Success);

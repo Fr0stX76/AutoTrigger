@@ -22,7 +22,7 @@ namespace AutoTrigger.Ui
             _programs = ReadPrograms(processes);
 
             UiTextBox search = Kit.TextField(string.Empty, Filter, Texts.Search);
-            search.Margin = new Thickness(0, 18, 0, 0);
+            search.Margin = Spacing.Top(Spacing.Field);
             Body.Children.Add(search);
 
             var scroller = new ScrollViewer
@@ -32,8 +32,8 @@ namespace AutoTrigger.Ui
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Content = _list,
             };
-            Border card = Res.Card(scroller, new Thickness(4));
-            card.Margin = new Thickness(0, 12, 0, 0);
+            Border card = Res.Card(scroller, Spacing.ListInset);
+            card.Margin = Spacing.Top(Spacing.Medium);
             Body.Children.Add(card);
             Body.Children.Add(_error);
             Filter(string.Empty);
@@ -62,10 +62,10 @@ namespace AutoTrigger.Ui
                 if (query.Length > 0 && program.Name.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) < 0
                     && program.Path.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) < 0)
                     continue;
-                var lines = new StackPanel { Margin = new Thickness(4, 0, 0, 0) };
+                var lines = new StackPanel { Margin = Spacing.Left(Spacing.Tight) };
                 lines.Children.Add(Res.Text(program.Name, 14, FontWeights.SemiBold));
                 lines.Children.Add(Kit.Caption(program.Path));
-                var row = new ListRow(lines, new Thickness(12, 6, 12, 6));
+                var row = new ListRow(lines, Spacing.ListRow);
                 string path = program.Path;
                 row.Clicked += () => Choose(row, path);
                 row.MouseLeftButtonDown += (s, e) =>
@@ -78,7 +78,7 @@ namespace AutoTrigger.Ui
             if (_list.Children.Count == 0)
             {
                 TextBlock none = Kit.Caption(Texts.NothingFound);
-                none.Margin = new Thickness(12);
+                none.Margin = new Thickness(Spacing.Medium);
                 _list.Children.Add(none);
             }
         }
@@ -104,6 +104,7 @@ namespace AutoTrigger.Ui
             }
             catch (Exception ex)
             {
+                // Reading live processes can fail in many ways; an empty list is shown instead of an error.
                 AutoTrigger.Core.Logging.Log.Warning("Running programs cannot be listed", ex);
                 return new List<RunningProgram>();
             }

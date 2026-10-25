@@ -101,6 +101,7 @@ namespace AutoTrigger.Core.Logging
             }
         }
 
+        // Logs are attached to bug reports: the user folder, and so the user name, becomes %USERPROFILE%.
         public static string HideUserProfile(string text, string profile)
         {
             if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(profile))
@@ -148,6 +149,7 @@ namespace AutoTrigger.Core.Logging
                 }
                 catch (Exception)
                 {
+                    // Logging must never take the app down; a batch that cannot be written is dropped.
                 }
             }
         }

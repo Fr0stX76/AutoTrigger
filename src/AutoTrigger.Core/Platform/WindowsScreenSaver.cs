@@ -25,6 +25,7 @@ namespace AutoTrigger.Core.Platform
             {
                 if (_closing && !on)
                     throw new InvalidOperationException("AutoTrigger is closing");
+                // Without SPIF_UPDATEINIFILE the change lasts for this session only, so a crash cannot leave the screen saver off for good.
                 if (!NativeMethods.SystemParametersInfo(NativeMethods.SPI_SETSCREENSAVEACTIVE, on ? 1u : 0u, IntPtr.Zero,
                     NativeMethods.SPIF_SENDCHANGE))
                     throw new Win32Exception(Marshal.GetLastWin32Error());
@@ -46,6 +47,7 @@ namespace AutoTrigger.Core.Platform
                 }
                 catch (Exception ex)
                 {
+                    // Exit goes on even if Windows refuses.
                     Log.Error("The screen saver could not be turned back on", ex);
                 }
             }

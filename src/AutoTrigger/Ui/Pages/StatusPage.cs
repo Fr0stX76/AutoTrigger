@@ -37,54 +37,90 @@ namespace AutoTrigger.Ui
             this.Bind(BackgroundProperty, Res.Layer);
 
             ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 360, MaxWidth = 560 });
-            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 380 });
             Margin = new Thickness(0);
 
-            var left = new Grid { Margin = new Thickness(32, 24, 0, 24) };
+            _hdr = new StateRow(Texts.Hdr);
+            _hdr.Switch.Click += (s, e) => HdrChanged?.Invoke(_hdr.Switch.IsChecked == true);
+            _monitoring = new StateRow(Texts.Monitoring);
+            _monitoring.Switch.Click += (s, e) => MonitoringChanged?.Invoke(_monitoring.Switch.IsChecked == true);
+            _currentName = Res.Text(Texts.None, 16);
+            _currentProfile = Res.Text(Texts.None, 14);
+            _profileLink = Kit.Link(_profileRun, () =>
+            {
+                if (_profileId != Guid.Empty)
+                    ProfileClicked?.Invoke(_profileId);
+            });
+
+            Children.Add(BuildApplicationsColumn());
+            ScrollViewer statusColumn = BuildStatusColumn();
+            Grid.SetColumn(statusColumn, 2);
+            Children.Add(statusColumn);
+
+            ShowCurrent(null, null);
+        }
+
+        private Grid BuildApplicationsColumn()
+        {
+            var left = new Grid { Margin = Spacing.PageLeftColumn };
             left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             left.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             left.Children.Add(Heading(Texts.Applications));
-            _appList.Margin = new Thickness(0, 0, 24, 0);
+            _appList.Margin = Spacing.Right(Spacing.Section);
             var scroller = new ScrollViewer
             {
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Content = _appList,
             };
-            Border appCard = Res.Card(scroller, new Thickness(4));
+            Border appCard = Res.Card(scroller, Spacing.ListInset);
             appCard.VerticalAlignment = VerticalAlignment.Top;
             Grid.SetRow(appCard, 1);
             left.Children.Add(appCard);
-            Children.Add(left);
+            return left;
+        }
 
-            var right = new Grid { Margin = new Thickness(0, 24, 32, 24), HorizontalAlignment = HorizontalAlignment.Left };
+        private ScrollViewer BuildStatusColumn()
+        {
+            var right = new Grid { Margin = Spacing.PageRightColumn, HorizontalAlignment = HorizontalAlignment.Left };
             for (int i = 0; i < 4; i++)
                 right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             right.Children.Add(Heading(Texts.Status));
 
+            Border statusCard = BuildStatusCard();
+            Grid.SetRow(statusCard, 1);
+            right.Children.Add(statusCard);
+
+            TextBlock shortcutsHeading = Heading(Texts.KeyboardShortcuts);
+            shortcutsHeading.Margin = new Thickness(0, Spacing.Section, 0, Spacing.Medium);
+            Grid.SetRow(shortcutsHeading, 2);
+            right.Children.Add(shortcutsHeading);
+            Border shortcutsCard = BuildShortcutsCard();
+            Grid.SetRow(shortcutsCard, 3);
+            right.Children.Add(shortcutsCard);
+            SetShortcuts(Array.Empty<Profile>());
+
+            return new ScrollViewer
+            {
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = right,
+            };
+        }
+
+        private Border BuildStatusCard()
+        {
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Kit.LabelWidth) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            _hdr = new StateRow(Texts.Hdr);
-            _hdr.Switch.Click += (s, e) => HdrChanged?.Invoke(_hdr.Switch.IsChecked == true);
-            _monitoring = new StateRow(Texts.Monitoring);
-            _monitoring.Switch.Click += (s, e) => MonitoringChanged?.Invoke(_monitoring.Switch.IsChecked == true);
-
-            _currentName = Res.Text(Texts.None, 16);
             var current = new StackPanel { Orientation = Orientation.Horizontal };
             current.Children.Add(_currentIcon);
-            _currentName.Margin = new Thickness(12, 0, 0, 0);
+            _currentName.Margin = Spacing.Left(Spacing.Medium);
             current.Children.Add(_currentName);
 
-            _currentProfile = Res.Text(Texts.None, 14);
-            _profileLink = ProfileLink(_profileRun, () =>
-            {
-                if (_profileId != Guid.Empty)
-                    ProfileClicked?.Invoke(_profileId);
-            });
             _profileLink.Visibility = Visibility.Collapsed;
             var profilePanel = new Grid();
             profilePanel.Children.Add(_currentProfile);
@@ -95,39 +131,25 @@ namespace AutoTrigger.Ui
             AddRow(grid, 2, Texts.CurrentApplication, current);
             AddRow(grid, 3, Texts.CurrentProfile, profilePanel);
 
-            Border statusCard = Res.Card(grid, new Thickness(24, 20, 24, 20));
+            Border statusCard = Res.Card(grid, Spacing.Panel);
             statusCard.VerticalAlignment = VerticalAlignment.Top;
             statusCard.MinWidth = 480;
             statusCard.MaxWidth = 640;
-            Grid.SetRow(statusCard, 1);
-            right.Children.Add(statusCard);
+            return statusCard;
+        }
 
-            TextBlock shortcutsHeading = Heading(Texts.KeyboardShortcuts);
-            shortcutsHeading.Margin = new Thickness(0, 24, 0, 12);
-            Grid.SetRow(shortcutsHeading, 2);
-            right.Children.Add(shortcutsHeading);
-            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
-            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+        private Border BuildShortcutsCard()
+        {
+            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Kit.LabelWidth) });
+            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             Border shortcutsCard = Res.Card(_shortcuts, new Thickness(24, 14, 24, 14));
             shortcutsCard.VerticalAlignment = VerticalAlignment.Top;
             shortcutsCard.MinWidth = 480;
             shortcutsCard.MaxWidth = 640;
-            Grid.SetRow(shortcutsCard, 3);
-            right.Children.Add(shortcutsCard);
-            SetShortcuts(Array.Empty<Profile>());
-            var rightScroll = new ScrollViewer
-            {
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                Content = right,
-            };
-            Grid.SetColumn(rightScroll, 2);
-            Children.Add(rightScroll);
-
-            ShowCurrent(null, null);
+            return shortcutsCard;
         }
 
         public event Action<AppEntry> LaunchRequested;
@@ -156,7 +178,7 @@ namespace AutoTrigger.Ui
                 var empty = Res.Text(Texts.NoApplicationsYet);
                 empty.TextWrapping = TextWrapping.Wrap;
                 empty.TextTrimming = TextTrimming.None;
-                empty.Margin = new Thickness(12);
+                empty.Margin = new Thickness(Spacing.Medium);
                 _appList.Children.Add(empty);
                 return;
             }
@@ -189,7 +211,7 @@ namespace AutoTrigger.Ui
                 Grid.SetRow(keys, i);
                 _shortcuts.Children.Add(keys);
                 Guid id = entry.Profile.Id;
-                TextBlock profile = ProfileLink(new Run(ActionText.ProfileName(entry.Profile.Name)), () => ProfileClicked?.Invoke(id));
+                TextBlock profile = Kit.Link(new Run(ActionText.ProfileName(entry.Profile.Name)), () => ProfileClicked?.Invoke(id));
                 Grid.SetRow(profile, i);
                 Grid.SetColumn(profile, 2);
                 _shortcuts.Children.Add(profile);
@@ -198,19 +220,6 @@ namespace AutoTrigger.Ui
                 Grid.SetColumn(kind, 4);
                 _shortcuts.Children.Add(kind);
             }
-        }
-
-        private static TextBlock ProfileLink(Run text, Action clicked)
-        {
-            var link = new Hyperlink(text) { TextDecorations = null, Cursor = System.Windows.Input.Cursors.Hand };
-            link.SetResourceReference(TextElement.ForegroundProperty, Res.AccentFill);
-            link.MouseEnter += (s, e) => link.TextDecorations = TextDecorations.Underline;
-            link.MouseLeave += (s, e) => link.TextDecorations = null;
-            link.Click += (s, e) => clicked();
-            TextBlock block = Res.Text(string.Empty, 14);
-            block.Inlines.Clear();
-            block.Inlines.Add(link);
-            return block;
         }
 
         public void ShowEngine(EngineSnapshot snapshot)
@@ -252,7 +261,7 @@ namespace AutoTrigger.Ui
                 return;
             }
             _currentIcon.Visibility = Visibility.Visible;
-            _currentName.Margin = new Thickness(12, 0, 0, 0);
+            _currentName.Margin = Spacing.Left(Spacing.Medium);
             _currentName.Text = name ?? app.Name;
             _currentName.FontSize = 16;
             _currentName.SetResourceReference(TextBlock.ForegroundProperty, Res.TextPrimary);
@@ -268,7 +277,7 @@ namespace AutoTrigger.Ui
             _icons.Get(app.Path, icon.ShowImage);
 
             var name = Res.Text(string.IsNullOrWhiteSpace(app.Name) ? app.FileName : app.Name);
-            name.Margin = new Thickness(12, 0, 12, 0);
+            name.Margin = new Thickness(Spacing.Medium, 0, Spacing.Medium, 0);
 
             if (!app.Enabled)
             {
@@ -305,7 +314,7 @@ namespace AutoTrigger.Ui
         private static TextBlock Heading(string text)
         {
             var heading = Res.Text(text, 20, FontWeights.SemiBold);
-            heading.Margin = new Thickness(0, 0, 0, 12);
+            heading.Margin = new Thickness(0, 0, 0, Spacing.Medium);
             return heading;
         }
 
@@ -313,7 +322,7 @@ namespace AutoTrigger.Ui
         {
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             var text = Res.Text(label, 14, FontWeights.SemiBold);
-            var labelHost = new Border { Child = text, MinHeight = 40, Margin = new Thickness(0, row == 0 ? 0 : 18, 0, 0) };
+            var labelHost = new Border { Child = text, MinHeight = 40, Margin = Spacing.Top(row == 0 ? 0 : Spacing.Field) };
             Grid.SetRow(labelHost, row);
             grid.Children.Add(labelHost);
 

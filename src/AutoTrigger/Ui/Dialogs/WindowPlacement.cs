@@ -7,6 +7,7 @@ namespace AutoTrigger.Ui
 {
     internal static class WindowPlacement
     {
+        // Windows guidelines place dialogs slightly above center: 45 % of the free space above, 55 % below.
         private const double SpaceAbove = 0.45;
 
         public static void PlaceOver(Window dialog)

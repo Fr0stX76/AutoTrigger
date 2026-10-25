@@ -24,6 +24,9 @@ namespace AutoTrigger.Core.Model
         public const int CurrentSchemaVersion = 1;
         public const int DefaultFocusStabilityMs = 300;
         public const int DefaultStartPollMs = 500;
+        public const int DefaultUpdateCheckHours = 4;
+        public const int MinUpdateCheckHours = 1;
+        public const int MaxUpdateCheckHours = 168;
 
         public bool StartMinimized { get; set; }
 
@@ -36,6 +39,10 @@ namespace AutoTrigger.Core.Model
         public int StartPollMs { get; set; } = DefaultStartPollMs;
 
         public LogLevel LogLevel { get; set; } = LogLevel.Error;
+
+        public bool CheckForUpdates { get; set; } = true;
+
+        public int UpdateCheckHours { get; set; } = DefaultUpdateCheckHours;
 
         public bool MonitoringPaused { get; set; }
 
@@ -58,6 +65,8 @@ namespace AutoTrigger.Core.Model
             FocusStabilityMs = defaults.FocusStabilityMs;
             StartPollMs = defaults.StartPollMs;
             LogLevel = defaults.LogLevel;
+            CheckForUpdates = defaults.CheckForUpdates;
+            UpdateCheckHours = defaults.UpdateCheckHours;
         }
 
         public Profile FindProfile(Guid id)
