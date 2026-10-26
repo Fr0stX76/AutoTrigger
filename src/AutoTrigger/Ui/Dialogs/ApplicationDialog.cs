@@ -129,7 +129,7 @@ namespace AutoTrigger.Ui
             if (path == _iconPath)
                 return;
             _iconPath = path;
-            _icon.ShowInitials(_name.Text.Length > 0 ? _name.Text : Path.GetFileNameWithoutExtension(SafeName(path)));
+            _icon.ShowInitials(_name.Text.Length > 0 ? _name.Text : SafeName(path));
             if (path.Length > 0)
                 _icons.Get(path, image => { if (_iconPath == path) _icon.ShowImage(image); });
         }
@@ -150,14 +150,14 @@ namespace AutoTrigger.Ui
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
             {
             }
-            return Path.GetFileNameWithoutExtension(SafeName(path));
+            return SafeName(path);
         }
 
         private static string SafeName(string path)
         {
             try
             {
-                return Path.GetFileName(path);
+                return Path.GetFileNameWithoutExtension(path);
             }
             catch (ArgumentException)
             {

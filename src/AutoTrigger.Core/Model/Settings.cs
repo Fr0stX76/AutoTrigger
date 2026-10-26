@@ -12,6 +12,20 @@ namespace AutoTrigger.Core.Model
         LostFocus,
     }
 
+    public static class EventNames
+    {
+        public static string Of(EventKind kind)
+        {
+            switch (kind)
+            {
+                case EventKind.Started: return "started";
+                case EventKind.Closed: return "closed";
+                case EventKind.GotFocus: return "gained focus";
+                default: return "lost focus";
+            }
+        }
+    }
+
     public enum ThemeMode
     {
         Auto,

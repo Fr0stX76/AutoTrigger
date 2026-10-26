@@ -82,8 +82,10 @@ namespace AutoTrigger
         private bool ConfirmReplace() =>
             MessageDialog.Show(_window, Texts.ImportFromAutoActions, Texts.ImportReplaceText, Texts.Replace, Texts.Cancel) == DialogChoice.Primary;
 
+        // Windows' own messages end with a period, and the sentence adds its own.
         private void ShowImportError(string reason) =>
-            MessageDialog.Show(_window, Texts.ImportFromAutoActions, Texts.Format(Texts.ImportFailed, reason), Texts.Ok);
+            MessageDialog.Show(_window, Texts.ImportFromAutoActions,
+                Texts.Format(Texts.ImportFailed, (reason ?? string.Empty).TrimEnd('.', ' ')), Texts.Ok);
 
         private void ApplyImport(ImportResult result)
         {

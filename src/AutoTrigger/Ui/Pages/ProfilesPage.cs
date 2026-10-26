@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -157,7 +158,7 @@ namespace AutoTrigger.Ui
             {
                 return new HashSet<Guid>(_powerPlans.GetPlans().Select(p => p.Id));
             }
-            catch (Exception ex)
+            catch (Win32Exception ex)
             {
                 // Without the list, power plan references are not checked.
                 AutoTrigger.Core.Logging.Log.Warning("Power plans cannot be listed", ex);

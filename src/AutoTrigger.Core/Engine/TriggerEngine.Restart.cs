@@ -95,7 +95,7 @@ namespace AutoTrigger.Core.Engine
             Log.Info($"{app.Name}: Restart app, starting it again");
 
             string folder = ActionExecutor.ProgramFolder(restart.Path);
-            Task.Run(() => _processes.Start(restart.Path, restart.Arguments, folder, false)).ContinueWith(t => _scheduler.Post(() =>
+            Task.Run(() => _processes.Start(restart.Path, restart.Arguments, folder, false, false)).ContinueWith(t => _scheduler.Post(() =>
             {
                 if (t.Status != TaskStatus.RanToCompletion && app.Restart == restart)
                 {

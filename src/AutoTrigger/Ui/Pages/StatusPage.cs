@@ -240,7 +240,6 @@ namespace AutoTrigger.Ui
             _currentProfile.Visibility = hasProfile ? Visibility.Collapsed : Visibility.Visible;
         }
 
-
         public void ShowHdr(HdrState hdr, bool changing)
         {
             if (!hdr.Available)

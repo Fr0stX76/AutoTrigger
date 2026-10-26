@@ -416,7 +416,7 @@ namespace AutoTrigger
         {
             string path = ActionExecutor.ExpandPath(app.Path);
             string folder = ActionExecutor.ProgramFolder(path);
-            Task.Run(() => _processes.Start(path, string.Empty, folder, false)).ContinueWith(t =>
+            Task.Run(() => _processes.Start(path, string.Empty, folder, false, false)).ContinueWith(t =>
             {
                 if (t.Status == TaskStatus.RanToCompletion)
                 {

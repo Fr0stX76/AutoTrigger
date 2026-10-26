@@ -51,17 +51,6 @@ namespace AutoTrigger.Core.Engine
 
         public bool IsFinished { get; private set; }
 
-        public static string EventText(EventKind kind)
-        {
-            switch (kind)
-            {
-                case EventKind.Started: return "started";
-                case EventKind.Closed: return "closed";
-                case EventKind.GotFocus: return "gained focus";
-                default: return "lost focus";
-            }
-        }
-
         public void Start()
         {
             if (_started)

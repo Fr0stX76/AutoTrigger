@@ -43,7 +43,8 @@ namespace AutoTrigger.Core.Engine
 
         bool IsRunning(int pid, long creationTime);
 
-        StartedProgram Start(string path, string arguments, string workingDirectory, bool followExit);
+        // hidden starts the program with its window hidden; only for console programs (ConsoleProgram.Is).
+        StartedProgram Start(string path, string arguments, string workingDirectory, bool followExit, bool hidden);
 
         bool RequestClose(int pid);
 

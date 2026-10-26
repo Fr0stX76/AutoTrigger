@@ -4,6 +4,7 @@ using System.Linq;
 using AutoTrigger.Core.Displays;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Json;
+using AutoTrigger.Core.Logging;
 using AutoTrigger.Core.Model;
 
 namespace AutoTrigger.Tests
@@ -50,7 +51,14 @@ namespace AutoTrigger.Tests
             }
         }
 
-        public List<MonitorInfo> GetMonitors() => Monitors.Select(Copy).ToList();
+        public bool UnreadableAfterChange;
+
+        public List<MonitorInfo> GetMonitors()
+        {
+            if (UnreadableAfterChange && Calls.Any(c => c != "settle"))
+                throw new InvalidOperationException("driver resetting");
+            return Monitors.Select(Copy).ToList();
+        }
 
         private static MonitorInfo Copy(MonitorInfo m) => new MonitorInfo
         {
@@ -242,6 +250,25 @@ namespace AutoTrigger.Tests
                 string.Join("|", hw.Calls), "the steps made are undone, latest first");
             MonitorInfo tv = hw.Monitors[0];
             Check(tv.Width == 3840 && !tv.HdrOn && tv.RefreshNumerator == 120000, "back to the start state");
+        }
+
+        private static void DisplayUnreadableAfterChange()
+        {
+            var (hw, entries, runner) = DisplayRig();
+            hw.UnreadableAfterChange = true;
+            LogLevel level = Log.Level;
+            Log.Level = LogLevel.Detailed;
+            try
+            {
+                var a = new DisplayAction { DisplayId = entries[0].Id, Hdr = HdrChange.On, RefreshNumerator = 60000, RefreshDenominator = 1000 };
+                ActionOutcome r = runner.Run(a, entries);
+                Eq(ActionResult.Succeeded, r.Result, "display unreadable after the changes: still a success");
+                Eq("hdr on|settle|refresh 60 Hz|settle", string.Join("|", hw.Calls), "both steps sent, nothing undone");
+            }
+            finally
+            {
+                Log.Level = level;
+            }
         }
 
         private static void DisplayTargets()

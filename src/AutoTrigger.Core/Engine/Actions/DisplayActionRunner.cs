@@ -298,7 +298,7 @@ namespace AutoTrigger.Core.Engine
 
             if (Log.IsEnabled(LogLevel.Detailed))
             {
-                MonitorInfo after = _hardware.GetMonitors().FirstOrDefault(m => m.DevicePath == monitor.DevicePath);
+                MonitorInfo after = Fresh(monitor);
                 if (after != null)
                     Log.Detailed($"{monitor.Name} after: {Describe(after)}");
             }
@@ -319,7 +319,7 @@ namespace AutoTrigger.Core.Engine
             }
             catch (Exception ex)
             {
-                // The monitor can be unreadable while the driver resets after a mode change; the step is then applied anyway.
+                // The monitor can be unreadable while the driver resets after a mode change that succeeded; a failed read never fails the action.
                 Log.Detailed($"{monitor.Name}: cannot be read again ({ex.Message})");
                 return null;
             }

@@ -24,7 +24,19 @@ namespace AutoTrigger.Core.Model
 
         public virtual bool IsHardwareChange => false;
 
-        public abstract string Describe();
+        // Only Run program, Close program and Hotkey take a name: the other actions already say what they do.
+        public virtual bool CanBeNamed => false;
+
+        // Shown on the action card instead of its own summary; empty by default.
+        public string Name { get; set; } = string.Empty;
+
+        public string Describe()
+        {
+            string text = DescribeAction();
+            return CanBeNamed && !string.IsNullOrWhiteSpace(Name) ? text + " '" + Name.Trim() + "'" : text;
+        }
+
+        protected abstract string DescribeAction();
     }
 
     public sealed class RunProgramAction : ProfileAction
@@ -42,13 +54,32 @@ namespace AutoTrigger.Core.Model
 
         public bool HoldNext { get; set; }
 
+        public bool HideConsole { get; set; }
+
         public int HoldCapSec
         {
             get => _holdCapSec;
             set => _holdCapSec = Math.Max(1, Math.Min(3600, value));
         }
 
-        public override string Describe() => "Run program " + System.IO.Path.GetFileName(Path ?? string.Empty);
+        public override bool CanBeNamed => true;
+
+        protected override string DescribeAction() => "Run program " + FileName(Path);
+
+        // A path pasted from Explorer keeps its quotes, and .NET Framework refuses quotes or a typo such as '|' in a
+        // file name; the log line must never throw, or the run it belongs to would stop.
+        private static string FileName(string path)
+        {
+            string cleaned = (path ?? string.Empty).Trim().Trim('"');
+            try
+            {
+                return System.IO.Path.GetFileName(cleaned);
+            }
+            catch (ArgumentException)
+            {
+                return cleaned;
+            }
+        }
     }
 
     public sealed class CloseProgramAction : ProfileAction
@@ -70,7 +101,9 @@ namespace AutoTrigger.Core.Model
             set => _forceAfterSec = Math.Max(0, Math.Min(600, value));
         }
 
-        public override string Describe() => "Close program " + Target;
+        public override bool CanBeNamed => true;
+
+        protected override string DescribeAction() => "Close program " + Target;
     }
 
     public sealed class IncludeProfileAction : ProfileAction
@@ -81,7 +114,7 @@ namespace AutoTrigger.Core.Model
 
         public Guid ProfileId { get; set; }
 
-        public override string Describe() => "Reference profile " + ProfileId.ToString("D");
+        protected override string DescribeAction() => "Reference profile " + ProfileId.ToString("D");
     }
 
     public enum HdrChange
@@ -119,7 +152,7 @@ namespace AutoTrigger.Core.Model
 
         public string DynamicRange { get; set; } = string.Empty;
 
-        public override string Describe() => "Display";
+        protected override string DescribeAction() => "Display";
     }
 
     public sealed class WindowsSettingsAction : ProfileAction
@@ -153,7 +186,7 @@ namespace AutoTrigger.Core.Model
 
         public bool HasChanges => ChangesAudio || ChangesPowerPlan || ScreenSaverOn.HasValue;
 
-        public override string Describe() => "Windows settings";
+        protected override string DescribeAction() => "Windows settings";
     }
 
     public sealed class PressHotkeyAction : ProfileAction
@@ -164,7 +197,9 @@ namespace AutoTrigger.Core.Model
 
         public KeyCombination Keys { get; set; } = new KeyCombination();
 
-        public override string Describe() => "Hotkey " + KeyNames.Readable(Keys);
+        public override bool CanBeNamed => true;
+
+        protected override string DescribeAction() => "Hotkey " + KeyNames.Readable(Keys);
     }
 
     public sealed class UnknownAction : ProfileAction
@@ -181,6 +216,6 @@ namespace AutoTrigger.Core.Model
 
         public override string Type => TypeName;
 
-        public override string Describe() => "Unknown action '" + TypeName + "'";
+        protected override string DescribeAction() => "Unknown action '" + TypeName + "'";
     }
 }

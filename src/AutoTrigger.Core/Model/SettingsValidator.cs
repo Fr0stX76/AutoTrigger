@@ -80,7 +80,7 @@ namespace AutoTrigger.Core.Model
                 return new ValidationIssue
                 {
                     Kind = IssueKind.MissingDisplay,
-                    Message = $"Profile '{profile.Name}' ({kind}): display action for a display that is no longer in the list.",
+                    Message = $"Profile '{profile.Name}' ({EventNames.Of(kind)}): display action for a display that is no longer in the list.",
                 };
             }
             if (!(action is IncludeProfileAction include))
@@ -92,7 +92,7 @@ namespace AutoTrigger.Core.Model
                 return new ValidationIssue
                 {
                     Kind = IssueKind.MissingProfile,
-                    Message = $"Profile '{profile.Name}' ({kind}): referenced profile does not exist.",
+                    Message = $"Profile '{profile.Name}' ({EventNames.Of(kind)}): referenced profile does not exist.",
                 };
             }
             if (target.Id == profile.Id || CanReach(settings, kind, target.Id, profile.Id))
@@ -100,7 +100,7 @@ namespace AutoTrigger.Core.Model
                 return new ValidationIssue
                 {
                     Kind = IssueKind.Loop,
-                    Message = $"Profile '{profile.Name}' ({kind}): reference to '{target.Name}' makes a loop.",
+                    Message = $"Profile '{profile.Name}' ({EventNames.Of(kind)}): reference to '{target.Name}' makes a loop.",
                 };
             }
             return null;

@@ -40,10 +40,12 @@ namespace AutoTrigger.Ui
 
         public static string Summary(ProfileAction action, AppSettings settings)
         {
+            if (action.CanBeNamed && !string.IsNullOrWhiteSpace(action.Name))
+                return action.Name.Trim();
             switch (action)
             {
                 case RunProgramAction run:
-                    return string.IsNullOrWhiteSpace(run.Path) ? Texts.NoProgram : SafeFileName(run.Path);
+                    return RunSummary(run);
                 case CloseProgramAction close:
                     return string.IsNullOrWhiteSpace(close.Target) ? Texts.NoProgram : SafeFileName(close.Target);
                 case IncludeProfileAction include:
@@ -59,6 +61,15 @@ namespace AutoTrigger.Ui
                 default:
                     return action.Type;
             }
+        }
+
+        // A command-line tool says what it does through its arguments, so they follow the program.
+        private static string RunSummary(RunProgramAction run)
+        {
+            if (string.IsNullOrWhiteSpace(run.Path))
+                return Texts.NoProgram;
+            string program = SafeFileName(run.Path);
+            return string.IsNullOrWhiteSpace(run.Arguments) ? program : program + " · " + run.Arguments.Trim();
         }
 
         private static string ReferenceName(Profile target)
@@ -119,9 +130,9 @@ namespace AutoTrigger.Ui
                     : entry.LegacyUid >= 0 ? Texts.Format(Texts.ImportedDisplay, entry.LegacyUid) : Texts.Display);
             }
             if (d.Hdr == HdrChange.On)
-                parts.Add("HDR on");
+                parts.Add(Texts.HdrOn);
             else if (d.Hdr == HdrChange.Off)
-                parts.Add("HDR off");
+                parts.Add(Texts.HdrOff);
             if (d.Width > 0 && d.Height > 0)
                 parts.Add(d.Width.ToString(CultureInfo.InvariantCulture) + " × " + d.Height.ToString(CultureInfo.InvariantCulture));
             if (d.RefreshMax)

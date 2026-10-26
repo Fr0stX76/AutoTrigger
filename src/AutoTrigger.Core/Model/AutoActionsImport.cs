@@ -174,7 +174,7 @@ namespace AutoTrigger.Core.Model
             {
                 int shortcuts = List(_root, "ActionShortcuts").Count();
                 if (shortcuts > 0)
-                    _result.Warnings.Add($"{shortcuts} AutoActions shortcut(s) not imported: in AutoTrigger, keyboard shortcuts belong to profiles.");
+                    _result.Warnings.Add($"{CountText.Of(shortcuts, "AutoActions shortcut")} not imported: in AutoTrigger, keyboard shortcuts belong to profiles.");
             }
 
             private ProfileAction ReadAction(JsonValue action, string profileName)

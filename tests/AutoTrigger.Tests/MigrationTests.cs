@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Json;
 using AutoTrigger.Core.Logging;
 using AutoTrigger.Core.Model;
@@ -59,13 +60,135 @@ namespace AutoTrigger.Tests
             Check(windows.ChangesPowerPlan && windows.ScreenSaverOn == false, "1.2.0 file: power plan and screen saver kept");
             Eq("Ctrl+Alt+0", KeyNames.Readable(((PressHotkeyAction)vrr.OnClose[1]).Keys), "1.2.0 file: Hotkey keys kept");
 
-            JsonValue rewritten = SettingsJson.Write(s);
+            Check(!run.HideConsole, "1.2.0 file: console window shown by default");
+            SavedWithoutLoss(SettingsFixtures.Version120, s, "1.2.0 file");
+        }
+
+        private static void SettingsFrom130()
+        {
+            var warnings = new List<string>();
+            AppSettings s = SettingsJson.Read(JsonValue.Parse(SettingsFixtures.Version130), warnings);
+            Eq(0, warnings.Count, "1.3.0 file: read without warnings: " + string.Join(" | ", warnings));
+            Check(!s.CheckForUpdates, "1.3.0 file: update check switch kept");
+            Eq(12, s.UpdateCheckHours, "1.3.0 file: update check interval kept");
+            Eq(3, s.Applications.Count, "1.3.0 file: applications kept");
+            Eq(2, s.Profiles.Count, "1.3.0 file: profiles kept");
+            Eq(2, s.Displays.Count, "1.3.0 file: displays kept");
+            Profile vrr = s.Profiles.First(p => p.Name == "VRR");
+            Eq(6, vrr.OnStart.Count, "1.3.0 file: Started actions kept");
+            Check(vrr.OnStart.OfType<RunProgramAction>().All(r => !r.HideConsole), "1.3.0 file: console window shown by default");
+            SavedWithoutLoss(SettingsFixtures.Version130, s, "1.3.0 file");
+        }
+
+        private static void HiddenConsole()
+        {
+            Check(ConsoleProgram.IsConsoleImage(PeHeader(3), 512), "console subsystem: console");
+            Check(!ConsoleProgram.IsConsoleImage(PeHeader(2), 512), "window subsystem: not console");
+            byte[] notMz = PeHeader(3);
+            notMz[0] = (byte)'X';
+            Check(!ConsoleProgram.IsConsoleImage(notMz, 512), "no MZ: not console");
+            byte[] farPe = PeHeader(3);
+            BitConverter.GetBytes(4000).CopyTo(farPe, 0x3C);
+            Check(!ConsoleProgram.IsConsoleImage(farPe, 512), "PE header past the bytes read: not console");
+            Check(!ConsoleProgram.IsConsoleImage(PeHeader(3), 100), "file too short: not console");
+            Check(!ConsoleProgram.IsConsoleImage(null, 0), "nothing read: not console");
+
+            string dir = Path.Combine(Path.GetTempPath(), "at-console-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                string console = Path.Combine(dir, "tool.exe");
+                string window = Path.Combine(dir, "app.exe");
+                string script = Path.Combine(dir, "run.cmd");
+                File.WriteAllBytes(console, PeHeader(3));
+                File.WriteAllBytes(window, PeHeader(2));
+                File.WriteAllText(script, "@echo off");
+                Check(ConsoleProgram.Is(console), "console exe on disk: console");
+                Check(!ConsoleProgram.Is(window), "window exe on disk: not console");
+                Check(ConsoleProgram.Is(script), ".cmd script: console");
+                Check(!ConsoleProgram.Is(Path.Combine(dir, "gone.exe")), "missing file: not console");
+                Check(!ConsoleProgram.Is("tool.exe"), "no folder: not console");
+
+                var procs = new FakeProcessSystem(new FakeScheduler());
+                using (var exec = new ActionExecutor(procs))
+                {
+                    string hidden = exec.ExecuteAsync(new RunProgramAction { Path = console, HideConsole = true }).Result.Message;
+                    string shown = exec.ExecuteAsync(new RunProgramAction { Path = window, HideConsole = true }).Result.Message;
+                    exec.ExecuteAsync(new RunProgramAction { Path = script, HideConsole = true }).Wait();
+                    exec.ExecuteAsync(new RunProgramAction { Path = console }).Wait();
+                    Check(hidden.Contains("hidden"), "log says the console was hidden: " + hidden);
+                    Check(!shown.Contains("hidden"), "log does not say hidden for a window program: " + shown);
+                }
+                Eq("True|False|True|False", string.Join("|", procs.Starts.Select(r => r.Hidden)),
+                    "hidden only for console programs with the switch on; a window program is never hidden");
+
+                AppSettings saved = SettingsJson.Read(SettingsJson.Write(SettingsWith(new RunProgramAction { Path = console, HideConsole = true })),
+                    new List<string>());
+                Check(((RunProgramAction)saved.Profiles[0].OnStart[0]).HideConsole, "switch kept when saved");
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+            }
+        }
+
+        private static void ActionNames()
+        {
+            var named = new RunProgramAction { Name = "Close Voicemeeter", Path = "C:/Tools/vmrcli.exe", Arguments = "command.shutdown=1" };
+            AppSettings saved = SettingsJson.Read(SettingsJson.Write(SettingsWith(named)), new List<string>());
+            Eq("Close Voicemeeter", ((RunProgramAction)saved.Profiles[0].OnStart[0]).Name, "name kept when saved");
+            Eq("Run program vmrcli.exe 'Close Voicemeeter'", named.Describe(), "name in the log");
+            Eq("Run program vmrcli.exe", new RunProgramAction { Path = "C:/Tools/vmrcli.exe" }.Describe(), "no name: log unchanged");
+            Eq("Run program vmrcli.exe", new RunProgramAction { Path = "\"C:/Tools/vmrcli.exe\"" }.Describe(), "quotes from Explorer: left out of the log");
+            Check(new RunProgramAction { Path = "C:/Tools/a|b.exe" }.Describe().StartsWith("Run program ", StringComparison.Ordinal),
+                "a mistyped path still gives a log line");
+            Profile copy = ProfileCopy.Duplicate(saved.Profiles[0], "P (copy)");
+            Eq("Close Voicemeeter", ((RunProgramAction)copy.OnStart[0]).Name, "name kept in a duplicated profile");
+
+            var close = new CloseProgramAction { Name = "Stop Steam", Target = "steam.exe" };
+            Eq("Stop Steam", ((CloseProgramAction)SettingsJson.ReadAction(SettingsJson.WriteAction(close))).Name, "Close program: name kept");
+            Eq("Close program steam.exe 'Stop Steam'", close.Describe(), "Close program: name in the log");
+            var keys = new PressHotkeyAction { Name = "RTSS normal", Keys = new KeyCombination { Ctrl = true, Alt = true, Key = 0x31 } };
+            Eq("RTSS normal", ((PressHotkeyAction)SettingsJson.ReadAction(SettingsJson.WriteAction(keys))).Name, "Hotkey: name kept");
+            Eq("Hotkey Ctrl+Alt+1 'RTSS normal'", keys.Describe(), "Hotkey: name in the log");
+
+            var display = new DisplayAction { Name = "Not offered" };
+            JsonValue written = SettingsJson.WriteAction(display);
+            Check(written["name"] == null, "Display: no name written");
+            Eq("Display", display.Describe(), "Display: no name in the log");
+            Eq("", SettingsJson.ReadAction(written.Set("name", "Edited by hand")).Name, "Display: a name in the file is ignored");
+        }
+
+        private static AppSettings SettingsWith(ProfileAction action)
+        {
+            var settings = new AppSettings();
+            var profile = new Profile { Name = "P" };
+            profile.OnStart.Add(action);
+            settings.Profiles.Add(profile);
+            return settings;
+        }
+
+        private static byte[] PeHeader(ushort subsystem)
+        {
+            var bytes = new byte[512];
+            bytes[0] = (byte)'M';
+            bytes[1] = (byte)'Z';
+            BitConverter.GetBytes(0x80).CopyTo(bytes, 0x3C);
+            bytes[0x80] = (byte)'P';
+            bytes[0x81] = (byte)'E';
+            BitConverter.GetBytes(subsystem).CopyTo(bytes, 0x80 + 4 + 20 + 68);
+            return bytes;
+        }
+
+        private static void SavedWithoutLoss(string fixture, AppSettings read, string label)
+        {
+            JsonValue rewritten = SettingsJson.Write(read);
             var lost = new List<string>();
-            SameValues(JsonValue.Parse(SettingsFixtures.Version120), rewritten, "settings", lost);
-            Eq(0, lost.Count, "1.2.0 file: nothing lost when saved again: " + string.Join(", ", lost));
+            SameValues(JsonValue.Parse(fixture), rewritten, "settings", lost);
+            Eq(0, lost.Count, label + ": nothing lost when saved again: " + string.Join(", ", lost));
             string once = rewritten.ToJson();
             string twice = SettingsJson.Write(SettingsJson.Read(JsonValue.Parse(once), new List<string>())).ToJson();
-            Eq(once, twice, "1.2.0 file: saving again changes nothing more");
+            Eq(once, twice, label + ": saving again changes nothing more");
         }
 
         private static void OldSettingsCopies()

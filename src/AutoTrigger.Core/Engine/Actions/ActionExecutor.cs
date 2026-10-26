@@ -156,19 +156,22 @@ namespace AutoTrigger.Core.Engine
                 return ActionOutcome.Failure("no program set");
 
             string folder = ProgramFolder(path);
+            // Checked again here: a window program must never be started hidden, even if the setting says so.
+            bool hidden = action.HideConsole && ConsoleProgram.Is(path);
             StartedProgram started;
             try
             {
-                started = _processes.Start(path, action.Arguments ?? string.Empty, folder, action.HoldNext);
+                started = _processes.Start(path, action.Arguments ?? string.Empty, folder, action.HoldNext, hidden);
             }
             catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException || ex is IOException)
             {
                 return ActionOutcome.Failure($"cannot start '{path}': {ex.Message}");
             }
 
+            string how = hidden ? " hidden" : string.Empty;
             if (started == null || started.Pid == 0)
-                return ActionOutcome.Success("opened", started?.Exited);
-            return ActionOutcome.Success($"started, pid {started.Pid}", started.Exited);
+                return ActionOutcome.Success("opened" + how, started?.Exited);
+            return ActionOutcome.Success($"started{how}, pid {started.Pid}", started.Exited);
         }
 
         public static string ExpandPath(string path)

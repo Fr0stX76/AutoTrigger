@@ -30,7 +30,7 @@ namespace AutoTrigger.Ui
                 ShowError(_error, Texts.Format(Texts.ErrorHotkeyIsShortcut, ActionText.ProfileName(owner.Name)));
                 return false;
             }
-            Result = new PressHotkeyAction { Keys = keys, DelayMs = delay };
+            Result = new PressHotkeyAction { Name = _name.Text.Trim(), Keys = keys, DelayMs = delay };
             return true;
         }
     }

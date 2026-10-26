@@ -32,6 +32,7 @@ namespace AutoTrigger.Core.Model
                         Path = Str(json, "path", string.Empty),
                         Arguments = Str(json, "arguments", string.Empty),
                         HoldNext = Bool(json, "holdNext", false),
+                        HideConsole = Bool(json, "hideConsole", false),
                         HoldCapSec = (int)Num(json, "holdCapSec", RunProgramAction.DefaultHoldCapSec),
                     };
                     break;
@@ -62,6 +63,8 @@ namespace AutoTrigger.Core.Model
                     return new UnknownAction(type, json) { DelayMs = (int)Num(json, "delayMs", 0) };
             }
             action.DelayMs = (int)Num(json, "delayMs", 0);
+            if (action.CanBeNamed)
+                action.Name = Str(json, "name", string.Empty);
             return action;
         }
 
@@ -190,12 +193,15 @@ namespace AutoTrigger.Core.Model
             }
 
             var json = JsonValue.NewObject().Set("type", action.Type).Set("delayMs", action.DelayMs);
+            if (action.CanBeNamed)
+                json.Set("name", action.Name ?? string.Empty);
             switch (action)
             {
                 case RunProgramAction run:
                     json.Set("path", run.Path ?? string.Empty)
                         .Set("arguments", run.Arguments ?? string.Empty)
                         .Set("holdNext", run.HoldNext)
+                        .Set("hideConsole", run.HideConsole)
                         .Set("holdCapSec", run.HoldCapSec);
                     break;
                 case CloseProgramAction close:

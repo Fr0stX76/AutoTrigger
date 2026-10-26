@@ -80,7 +80,7 @@ namespace AutoTrigger.Core.Platform
             }
         }
 
-        public StartedProgram Start(string path, string arguments, string workingDirectory, bool followExit)
+        public StartedProgram Start(string path, string arguments, string workingDirectory, bool followExit, bool hidden)
         {
             var info = new ProcessStartInfo
             {
@@ -88,6 +88,8 @@ namespace AutoTrigger.Core.Platform
                 Arguments = arguments ?? string.Empty,
                 // Like the Run box: finds App Paths names such as notepad.exe and opens documents and links.
                 UseShellExecute = true,
+                // Through ShellExecute this becomes SW_HIDE, which a console window honours.
+                WindowStyle = hidden ? ProcessWindowStyle.Hidden : ProcessWindowStyle.Normal,
             };
             if (!string.IsNullOrEmpty(workingDirectory))
                 info.WorkingDirectory = workingDirectory;

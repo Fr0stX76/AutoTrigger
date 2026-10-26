@@ -10,9 +10,10 @@ Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory
 - Actions, each with its own delay:
   - **Display**: HDR, resolution, refresh rate and, on NVIDIA, color depth, format and range. Works with DSR and DLDSR.
   - **Windows settings**: default audio output and input devices, power plan, and screen saver on or off for games played with a controller.
-  - **Run program** and **Close program**.
+  - **Run program**, with an option to hide the console window of command-line tools and scripts, and **Close program**.
   - **Hotkey**: presses a keyboard shortcut of another program, such as an RTSS overlay.
   - **Reference profile**: reuses the actions of another profile.
+- An optional name for Run program, Close program and Hotkey actions, shown on the action card and in the log.
 - Shared profiles, a monitoring switch per application and a global pause.
 - Keyboard shortcuts and command line to run the Started or Closed actions of a profile on demand.
 - Windows Store apps, focus included.
@@ -37,8 +38,8 @@ Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory
 
 ## Requirements
 
-- Windows 10 22H2 or Windows 11 24H2 and later, 64-bit.
-- .NET Framework 4.8, included in Windows 11.
+- Windows 10 22H2 or Windows 11, 64-bit.
+- .NET Framework 4.8, included in Windows 10 22H2 and Windows 11.
 - An NVIDIA GPU for color depth, format and range.
 
 ## Usage
@@ -61,7 +62,7 @@ Applications are matched by full path. Choose **File name only** when the folder
 
 ### Keyboard shortcuts and command line
 
-A profile can have two keyboard shortcuts (Ctrl or Alt, with or without Shift, plus a key): **Keyboard shortcut (Started)** runs its **Started** actions and **Keyboard shortcut (Closed)** its **Closed** actions, from anywhere. They also work while monitoring is paused. The Status page lists them all.
+A profile can have two keyboard shortcuts (Ctrl or Alt, with or without Shift, plus a key; F13 to F24 also work alone): **Keyboard shortcut (Started)** runs its **Started** actions and **Keyboard shortcut (Closed)** its **Closed** actions, from anywhere. They also work while monitoring is paused. The Status page lists them all.
 
 | Command | Result |
 | --- | --- |
@@ -71,7 +72,7 @@ A profile can have two keyboard shortcuts (Ctrl or Alt, with or without Shift, p
 | `AutoTrigger.exe /started "Name"` | Run the Started actions of a profile |
 | `AutoTrigger.exe /closed "Name"` | Run the Closed actions of a profile |
 
-AutoTrigger starts if it is not running. Exit code: 0 on success, 1 on failure, 2 for an unknown command.
+If AutoTrigger is not running, the command starts it and returns only when AutoTrigger exits. Sent to a running AutoTrigger, it returns 0 on success and 1 on failure. An unknown command returns 2.
 
 ### Hotkey limits
 

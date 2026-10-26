@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
@@ -67,6 +68,8 @@ namespace AutoTrigger.Ui
                 lines.Children.Add(Kit.Caption(program.Path));
                 var row = new ListRow(lines, Spacing.ListRow);
                 string path = program.Path;
+                if (_selectedRow == null && string.Equals(path, _selectedPath, StringComparison.OrdinalIgnoreCase))
+                    Choose(row, path);
                 row.Clicked += () => Choose(row, path);
                 row.MouseLeftButtonDown += (s, e) =>
                 {
@@ -75,6 +78,9 @@ namespace AutoTrigger.Ui
                 };
                 _list.Children.Add(row);
             }
+            // A choice the search hides is dropped, so Select never returns a program that is not shown.
+            if (_selectedRow == null)
+                _selectedPath = null;
             if (_list.Children.Count == 0)
             {
                 TextBlock none = Kit.Caption(Texts.NothingFound);
@@ -102,9 +108,9 @@ namespace AutoTrigger.Ui
             {
                 return RunningPrograms.Read(processes, self, Environment.GetFolderPath(Environment.SpecialFolder.Windows));
             }
-            catch (Exception ex)
+            catch (Win32Exception ex)
             {
-                // Reading live processes can fail in many ways; an empty list is shown instead of an error.
+                // When the process list cannot be read, an empty list is shown instead of an error.
                 AutoTrigger.Core.Logging.Log.Warning("Running programs cannot be listed", ex);
                 return new List<RunningProgram>();
             }

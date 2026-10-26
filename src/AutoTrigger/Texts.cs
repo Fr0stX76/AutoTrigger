@@ -48,6 +48,7 @@ namespace AutoTrigger
         public const string On = "On";
         public const string Unnamed = "(unnamed)";
         public const string NothingFound = "Nothing found";
+        public const string Optional = "Optional";
         public const string Milliseconds = "ms";
         public const string Seconds = "s";
         public const string Hours = "h";
@@ -83,6 +84,7 @@ namespace AutoTrigger
         public const string Delay = "Delay";
         public const string ChooseProgramFile = "Choose a program";
         public const string Arguments = "Arguments";
+        public const string HideConsoleWindow = "Hide console window";
         public const string HoldNext = "Hold next actions until this program finishes";
         public const string StopHoldingAfter = "Stop holding after";
         public const string CloseTargetHint = "Program name or full path";
@@ -125,6 +127,8 @@ namespace AutoTrigger
         public const string ScreenSaver = "Screen saver";
         public const string ScreenSaverOn = "Screen saver on";
         public const string ScreenSaverOff = "Screen saver off";
+        public const string HdrOn = "HDR on";
+        public const string HdrOff = "HDR off";
         public const string KeyboardShortcut = "Keyboard shortcut";
         public const string KeyboardShortcutStarted = "Keyboard shortcut (Started)";
         public const string KeyboardShortcutClosed = "Keyboard shortcut (Closed)";

@@ -143,6 +143,7 @@ namespace AutoTrigger.Tests
         public string Folder;
         public long At;
         public FakeProc Process;
+        public bool Hidden;
     }
 
     public sealed class FakeProcessSystem : IProcessSystem
@@ -235,13 +236,13 @@ namespace AutoTrigger.Tests
                 return _procs.TryGetValue(pid, out FakeProc p) && p.Running && (creationTime == 0 || creationTime == p.Creation);
         }
 
-        public StartedProgram Start(string path, string arguments, string workingDirectory, bool followExit)
+        public StartedProgram Start(string path, string arguments, string workingDirectory, bool followExit, bool hidden)
         {
             if (path.Contains("missing"))
                 throw new Win32Exception(2);
             FakeProc proc = CreateProcessOnStart(path, arguments) ? Launch(path, "\"" + path + "\" " + arguments) : null;
             lock (_lock)
-                Starts.Add(new StartRecord { Path = path, Arguments = arguments, Folder = workingDirectory, At = _clock.NowMs, Process = proc });
+                Starts.Add(new StartRecord { Path = path, Arguments = arguments, Folder = workingDirectory, At = _clock.NowMs, Process = proc, Hidden = hidden });
             return new StartedProgram { Pid = proc?.Pid ?? 0, Exited = followExit ? proc?.ExitTcs.Task : null };
         }
 
@@ -412,6 +413,7 @@ namespace AutoTrigger.Tests
                 ("Close program", CloseProgram),
                 ("Close program: Force waits its delay", CloseProgramForceDelay),
                 ("Run program failure continues", RunFailureContinues),
+                ("Run program: path pasted with quotes", QuotedProgramPath),
                 ("Display/audio skipped", HardwareSkipped),
                 ("Snapshot", SnapshotState),
                 ("Settings update", SettingsUpdate),
@@ -423,6 +425,7 @@ namespace AutoTrigger.Tests
                 ("Display: only what differs", DisplayOnlyDiffers),
                 ("Display: safe order", DisplaySafeOrder),
                 ("Display: undo after a failure", DisplayUndo),
+                ("Display: unreadable after the change", DisplayUnreadableAfterChange),
                 ("Display: target and refresh matching", DisplayTargets),
                 ("Display: colour guard", DisplayColorGuard),
                 ("Display: maximum rate, steps already in place", DisplayMaxAndInPlace),
@@ -451,6 +454,9 @@ namespace AutoTrigger.Tests
                 ("Helpers", Helpers),
                 ("JSON round trip", JsonRoundTrip),
                 ("Settings written by 1.2.0 are kept", SettingsFrom120),
+                ("Settings written by 1.3.0 are kept", SettingsFrom130),
+                ("Run program: hidden console", HiddenConsole),
+                ("Action names: Run program, Close program, Hotkey", ActionNames),
                 ("Reset to defaults", ResetDefaults),
                 ("Update check: versions and settings", UpdateVersions),
                 ("Sort and manual order", SortAndMove),
@@ -655,6 +661,8 @@ namespace AutoTrigger.Tests
             List<ValidationIssue> issues = SettingsValidator.Validate(s);
             Check(issues.Any(i => i.Kind == IssueKind.Loop), "loop reported by the validator");
             Check(issues.Any(i => i.Kind == IssueKind.MissingProfile), "missing profile reported");
+            Eq("Profile 'B' (closed): referenced profile does not exist.", issues.Single(i => i.Kind == IssueKind.MissingProfile).Message,
+                "the event is named as in the window");
 
             var rig = new Rig(s);
             rig.Engine.Start();
@@ -1008,6 +1016,25 @@ namespace AutoTrigger.Tests
             rig.Ps.Exit(g);
             rig.Sched.Advance(500);
             Eq(1, rig.StartTimes("after.exe").Count, "a failure does not stop the next actions");
+            rig.Stop();
+        }
+
+        private static void QuotedProgramPath()
+        {
+            var s = NewSettings();
+            var p = AddProfile(s, "Game");
+            p.OnClose.Add(Run("\"/tools/quoted.exe\"", 0));
+            p.OnClose.Add(Run("/tools/after.exe", 100));
+            AddApp(s, "Days Gone", GameExe, p);
+            var rig = new Rig(s);
+            rig.Engine.Start();
+            rig.Sched.Advance(10);
+            FakeProc g = rig.Ps.Launch(GameExe);
+            rig.Sched.Advance(1000);
+            rig.Ps.Exit(g);
+            rig.Sched.Advance(500);
+            Eq("/tools/quoted.exe", rig.Ps.Starts.FirstOrDefault()?.Path, "a path pasted with its quotes is started without them");
+            Eq(1, rig.StartTimes("after.exe").Count, "the next action still runs");
             rig.Stop();
         }
 
@@ -1691,6 +1718,10 @@ namespace AutoTrigger.Tests
 
             Check(Throws(() => AutoActionsImport.Read("{ \"name\": 1 }")), "not AutoActions settings: refused");
             Check(Throws(() => AutoActionsImport.Read("{ not json")), "not JSON: refused");
+            Check(AutoActionsImport.Read(json.Replace("\"ActionShortcuts\": []", "\"ActionShortcuts\": [{}]")).Warnings
+                .Any(w => w.StartsWith("1 AutoActions shortcut not imported", StringComparison.Ordinal)), "one shortcut: singular");
+            Check(AutoActionsImport.Read(json.Replace("\"ActionShortcuts\": []", "\"ActionShortcuts\": [{}, {}]")).Warnings
+                .Any(w => w.StartsWith("2 AutoActions shortcuts not imported", StringComparison.Ordinal)), "two shortcuts: plural");
             ImportResult teleport = AutoActionsImport.Read(json.Replace("CloseProgramAction", "TeleportAction"));
             Profile teleportZeta = teleport.Profiles.First(p => p.Name == zeta.Name);
             Eq("AutoActions.TeleportAction", (teleportZeta.OnClose[0] as UnknownAction)?.TypeName, "unknown action type: kept as an unknown action");

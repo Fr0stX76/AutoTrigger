@@ -16,7 +16,8 @@ How the code is organized, for anyone who maintains it. Comments in the code exp
 | --- | --- |
 | UI thread | Windows, tray, settings edits (`SettingsController`), keyboard shortcuts (`HotkeyService`, `RegisterHotKey` on a message-only window), the focus hook (`ForegroundWatcher`). |
 | Engine thread (`EngineLoop`) | All engine state: process detection, focus, event runs, timers. Other threads only `Post` to it. |
-| Thread pool | Actions (`ActionExecutor`), the command line server (`CommandServer`). |
+| Thread pool | Actions (`ActionExecutor`), the command line server (`CommandServer`), settings saves (`SettingsStore`). |
+| Icons (`AppIcons`) | Reads program icons and keeps their cache, on its own STA thread. |
 | Log writer | Writes `AutoTrigger.log` in batches. |
 
 Rules that keep this safe:
@@ -24,7 +25,7 @@ Rules that keep this safe:
 - Engine state is read and changed on the engine thread only. Actions run elsewhere and report back with `Post`.
 - Display and Windows settings changes take one shared semaphore: one hardware change at a time.
 - Run program, Close program requests and Hotkey keys are sent in the order they were asked for.
-- Nothing that can block (pipes, files) runs on the engine or UI thread.
+- Nothing that can block (pipes, files, network) runs on the engine thread. The UI thread only checks a file the user has just picked in a dialog; a path being typed is read on the thread pool.
 
 ## From a process to an action
 
@@ -57,11 +58,11 @@ A second `AutoTrigger.exe` with `/pause`, `/resume`, `/toggle`, `/started "Name"
 
 ## Tests
 
-`AutoTrigger.Tests.exe` runs the engine against fakes (process list, scheduler, foreground window, hardware) and checks settings JSON (including a file written by the previous version), display change order, keyboard shortcut rules and the command line through a private pipe. GitHub Actions builds and runs it on every push.
+`AutoTrigger.Tests.exe` runs the engine against fakes (process list, scheduler, foreground window, hardware) and checks settings JSON (including files written by earlier versions), display change order, keyboard shortcut rules and the command line through a private pipe. GitHub Actions builds and runs it on every push.
 
 ## Conventions
 
-- Texts shown to users are in `Texts.cs`.
+- Texts of the window are in `Texts.cs`. Messages built by the engine and the settings code, such as import notes and settings problems, are written where they are produced.
 - Windows 11 conventions for controls, wording and spacing.
 - No administrator rights. The only network access is `UpdateCheck`: one HTTPS GET to the GitHub API, no redirect, size and time limits, turned off in Settings. The release page it opens is built from the checked version, never taken from the response.
-- Errors: `catch (Exception)` only where an exception must never escape (window procedures, background threads, actions, startup and exit) or around drivers and COM, whose exceptions are not documented. Everywhere else, only the documented exceptions are caught. Caught failures are logged, unless a fallback is the expected outcome.
+- Errors: `catch (Exception)` only where an exception must never escape (window procedures, background threads, actions, startup and exit) or around drivers, COM and third-party code (WPF UI, GDI+), whose exceptions are not documented. Everywhere else, only the documented exceptions are caught. Caught failures are logged, unless a fallback is the expected outcome.

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -124,7 +125,7 @@ namespace AutoTrigger.Ui
                     active = _powerPlans.GetActive();
                 }
             }
-            catch (Exception ex)
+            catch (Win32Exception ex)
             {
                 // When the plans cannot be listed, the saved plan is still shown.
                 Log.Warning("Power plans cannot be listed", ex);

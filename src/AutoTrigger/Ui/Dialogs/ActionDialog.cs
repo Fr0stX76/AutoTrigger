@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Model;
 using Microsoft.Win32;
@@ -28,9 +30,16 @@ namespace AutoTrigger.Ui
         private readonly Border _panelHost = new Border();
         private readonly TextBlock _error = ErrorLine();
         private string _type;
+        private UiTextBox _name;
+        private StackPanel _nameField;
+        private readonly Dictionary<string, string> _names = new Dictionary<string, string>();
 
         private UiTextBox _runPath;
         private UiTextBox _runArguments;
+        private ToggleSwitch _hide;
+        private Grid _hideRow;
+        private DispatcherTimer _hideCheck;
+        private int _hideVersion;
         private ToggleSwitch _hold;
         private Grid _holdCapRow;
         private int _holdCapValue;
@@ -74,11 +83,17 @@ namespace AutoTrigger.Ui
             };
             ComboBox typeBox = Kit.Combo(types, _type, t =>
             {
+                // Each type keeps its own name, like its other fields: another type is another action.
+                _names[_type] = _name.Text;
                 _type = t;
+                _name.Text = _names.TryGetValue(t, out string name) ? name : string.Empty;
                 ShowPanel();
             });
             typeBox.HorizontalAlignment = HorizontalAlignment.Stretch;
             Body.Children.Add(Kit.Field(Texts.Type, typeBox));
+            _name = Kit.TextField(original != null && original.CanBeNamed ? original.Name : string.Empty, null, Texts.Optional);
+            _nameField = Kit.Field(Texts.Name, _name);
+            Body.Children.Add(_nameField);
             Body.Children.Add(Kit.Separator(Spacing.Top(Spacing.Field)));
             Body.Children.Add(_panelHost);
             Body.Children.Add(_error);
@@ -104,6 +119,7 @@ namespace AutoTrigger.Ui
         private void ShowPanel()
         {
             ShowError(_error, null);
+            _nameField.Visibility = _type == RunType || _type == CloseType || _type == HotkeyType ? Visibility.Visible : Visibility.Collapsed;
             switch (_type)
             {
                 case RunType: _panelHost.Child = _runPanel; break;
@@ -136,6 +152,21 @@ namespace AutoTrigger.Ui
             _runPanel.Children.Add(Kit.Field(Texts.Arguments, _runArguments));
             _runPanel.Children.Add(Kit.Separator(Spacing.Top(Spacing.Field)));
 
+            _hide = Kit.Switch(run.HideConsole, _ => { }, Texts.HideConsoleWindow);
+            _hideRow = SwitchRow(Texts.HideConsoleWindow, _hide);
+            // Until the program is read, a saved switch is the best guess: it was only saved for a console program.
+            _hideRow.Visibility = run.HideConsole ? Visibility.Visible : Visibility.Collapsed;
+            _runPanel.Children.Add(_hideRow);
+            // The program's header is read once typing pauses, not on every key.
+            _hideCheck = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+            _hideCheck.Tick += (s, e) => UpdateHide();
+            _runPath.TextChanged += (s, e) =>
+            {
+                _hideCheck.Stop();
+                _hideCheck.Start();
+            };
+            UpdateHide();
+
             _holdCapValue = run.HoldCapSec;
             _hold = Kit.Switch(run.HoldNext, on => UpdateHold(), Texts.HoldNext);
             _runPanel.Children.Add(SwitchRow(Texts.HoldNext, _hold));
@@ -143,6 +174,20 @@ namespace AutoTrigger.Ui
             _holdCapRow = NumberRow(Res.Text(Texts.StopHoldingAfter), holdCap, Texts.Seconds);
             _runPanel.Children.Add(_holdCapRow);
             UpdateHold();
+        }
+
+        // Shown only for a console program or script: hiding a window program would leave it invisible.
+        // The file is read off the UI thread, as a path on an unreachable share can take seconds to answer.
+        private void UpdateHide()
+        {
+            _hideCheck.Stop();
+            string path = ActionExecutor.ExpandPath(_runPath.Text);
+            int version = ++_hideVersion;
+            Task.Run(() => ConsoleProgram.Is(path)).ContinueWith(t => Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (version == _hideVersion && t.Status == TaskStatus.RanToCompletion)
+                    _hideRow.Visibility = t.Result ? Visibility.Visible : Visibility.Collapsed;
+            })), TaskScheduler.Default);
         }
 
         private void UpdateHold()
@@ -208,6 +253,7 @@ namespace AutoTrigger.Ui
                     }
                     Result = new CloseProgramAction
                     {
+                        Name = _name.Text.Trim(),
                         Target = target,
                         Force = _force.IsChecked == true,
                         ForceAfterSec = _forceAfterValue,
@@ -239,10 +285,13 @@ namespace AutoTrigger.Ui
                         ShowError(_error, Texts.ErrorNoProgram);
                         return false;
                     }
+                    // The switch row can trail a path typed just before saving; the program is checked again before it is hidden.
                     Result = new RunProgramAction
                     {
+                        Name = _name.Text.Trim(),
                         Path = path,
                         Arguments = _runArguments.Text.Trim(),
+                        HideConsole = _hideRow.Visibility == Visibility.Visible && _hide.IsChecked == true,
                         HoldNext = _hold.IsChecked == true,
                         HoldCapSec = _holdCapValue,
                         DelayMs = delay,

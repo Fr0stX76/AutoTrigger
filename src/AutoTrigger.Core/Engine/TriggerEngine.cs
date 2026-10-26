@@ -505,7 +505,7 @@ namespace AutoTrigger.Core.Engine
 
         private void Fire(AppState app, EventKind kind, string detail)
         {
-            string reason = $"{app.Name} {EventRun.EventText(kind)}";
+            string reason = $"{app.Name} {EventNames.Of(kind)}";
             bool lifecycle = kind == EventKind.Started || kind == EventKind.Closed;
             // A new Started or Closed replaces the run still going for the previous one; Closed also ends the focus run.
             if (lifecycle)
@@ -522,18 +522,18 @@ namespace AutoTrigger.Core.Engine
             Profile profile = _settings.FindProfile(app.Entry.ProfileId);
             if (profile == null)
             {
-                Log.Info($"{app.Name} {EventRun.EventText(kind)}{detail}: no profile assigned");
+                Log.Info($"{app.Name} {EventNames.Of(kind)}{detail}: no profile assigned");
                 Publish();
                 return;
             }
 
             List<PlannedAction> plan = PlanBuilder.Build(_settings, profile, kind);
-            Log.Info($"{app.Name} {EventRun.EventText(kind)}{detail}: profile '{profile.Name}', {plan.Count} action(s)");
+            Log.Info($"{app.Name} {EventNames.Of(kind)}{detail}: profile '{profile.Name}', {CountText.Of(plan.Count, "action")}");
 
             if (kind == EventKind.Started && profile.RestartApp)
                 ReadLaunchArguments(app);
 
-            var run = new EventRun(_scheduler, _execute, $"{app.Name} / {EventRun.EventText(kind)}", reason, kind, profile, plan,
+            var run = new EventRun(_scheduler, _execute, $"{app.Name} / {EventNames.Of(kind)}", reason, kind, profile, plan,
                 r => RunFinished(app, r));
             if (lifecycle)
                 app.LifeRun = run;

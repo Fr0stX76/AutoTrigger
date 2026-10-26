@@ -65,7 +65,7 @@ namespace AutoTrigger.Core.Engine
 
             string name = string.IsNullOrWhiteSpace(profile.Name) ? "unnamed" : profile.Name;
             List<PlannedAction> plan = PlanBuilder.Build(_settings, profile, kind);
-            Log.Info($"{trigger}: profile '{name}', {plan.Count} {kind} action(s)");
+            Log.Info($"{trigger}: profile '{name}', {CountText.Of(plan.Count, kind + " action")}");
             if (profile.RestartApp && kind == EventKind.Started)
                 Log.Detailed($"Profile '{name}': Restart app is ignored ({trigger})");
 
@@ -131,7 +131,7 @@ namespace AutoTrigger.Core.Engine
             var waiting = new WaitingRun { Run = run, Blockers = blockers };
             _waiting.Add(waiting);
             waiting.Limit = _scheduler.Schedule(FastTrackLimitMs, () => FastTrackLimitReached(waiting));
-            Log.Detailed($"{run.Trigger}: starts once {blockers.Count} fast-tracked profile run(s) finish");
+            Log.Detailed($"{run.Trigger}: waits for {CountText.Of(blockers.Count, "fast-tracked profile run")} to finish");
         }
 
         private void CheckWaiting()

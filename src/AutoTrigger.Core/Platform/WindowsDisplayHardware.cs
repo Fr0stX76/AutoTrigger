@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using AutoTrigger.Core.Displays;
@@ -84,13 +85,26 @@ namespace AutoTrigger.Core.Platform
             DisplayConfig.SetHdr(monitor, on);
             for (int waited = 0; waited < ConfirmTimeoutMs; waited += 100)
             {
-                MonitorInfo now = DisplayConfig.GetActiveMonitors().FirstOrDefault(m =>
-                    string.Equals(m.DevicePath, monitor.DevicePath, StringComparison.OrdinalIgnoreCase));
-                if (now != null && now.HdrOn == on)
+                if (HdrIs(monitor, on))
                     return;
                 Thread.Sleep(100);
             }
             Log.Detailed($"{monitor.Name}: HDR {(on ? "on" : "off")} not confirmed by Windows after {ConfirmTimeoutMs / 1000} s");
+        }
+
+        private static bool HdrIs(MonitorInfo monitor, bool on)
+        {
+            try
+            {
+                MonitorInfo now = DisplayConfig.GetActiveMonitors().FirstOrDefault(m =>
+                    string.Equals(m.DevicePath, monitor.DevicePath, StringComparison.OrdinalIgnoreCase));
+                return now != null && now.HdrOn == on;
+            }
+            catch (Win32Exception)
+            {
+                // The display list can be unreadable while the switch is in progress; the HDR change itself was accepted.
+                return false;
+            }
         }
 
         public bool IsColorSupported(MonitorInfo monitor, ColorSetting color) =>

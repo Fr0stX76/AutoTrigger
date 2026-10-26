@@ -15,6 +15,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using AutoTrigger.Core.Logging;
+using AutoTrigger.Core.Model;
 
 namespace AutoTrigger.Ui
 {
@@ -312,7 +313,7 @@ namespace AutoTrigger.Ui
                     removed++;
                 }
                 if (removed > 0)
-                    Log.Detailed($"Icon cache: {removed} unused file(s) removed");
+                    Log.Detailed($"Icon cache: {CountText.Of(removed, "unused file")} removed");
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
