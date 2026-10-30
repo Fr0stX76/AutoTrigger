@@ -44,7 +44,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 
 <img src="images/display-action.png" width="49%" align="top" alt="Display action: HDR on or off, resolution, refresh rate, color depth, format and range"> <img src="images/windows-settings-action.png" width="49%" align="top" alt="Windows settings action: default audio devices, power plan and screen saver">
 
-<img src="images/run-program-action.png" width="49%" align="top" alt="Run program action: name, program, arguments and the option to hold the next actions until it finishes"> <img src="images/hotkey-action.png" width="49%" align="top" alt="Hotkey action: name and the keyboard shortcut to press">
+<img src="images/run-program-action.png" width="49%" align="top" alt="Run program action: name, program, arguments, and the option to hold the next actions until it finishes, with its time limit"> <img src="images/hotkey-action.png" width="49%" align="top" alt="Hotkey action: name and the keyboard shortcut to press">
 
 <img src="images/displays.png" alt="Displays page: each monitor with its resolution, refresh rate, color format and HDR state">
 
@@ -52,50 +52,15 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 
 ## How actions run
 
+<!-- Diagram sources are in docs/diagrams, rendered to images/ with the Mermaid CLI (mmdc), transparent background, scale 2. -->
+
 An event of an application, a keyboard shortcut or a command picks a profile; the actions of that event then run one after the other.
 
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {"fontSize": "15px", "lineColor": "#8b949e", "textColor": "#8b949e", "titleColor": "#8b949e", "clusterBkg": "transparent", "clusterBorder": "#8b949e", "edgeLabelBackground": "#6e7681", "primaryTextColor": "#ffffff"}}}%%
-flowchart TB
-  app(["Application event<br/>Started, Closed, Gained focus, Lost focus"]) --> prof
-  key(["Keyboard shortcut or command line<br/>/started, /closed"]) --> prof
-  prof["Profile: the actions of that event"] --> a1
-  subgraph run ["Actions run in order"]
-    direction TB
-    a1["Display: HDR on"] -->|"delay"| ref
-    subgraph ref ["Reference profile: its actions are inserted here"]
-      direction TB
-      r1["Windows settings: audio and power plan"] --> r2["Run program, hold until it exits"]
-    end
-    ref -->|"program exited"| a3["Hotkey"] -->|"delay"| a4["Run program"]
-  end
-  classDef event fill:#8957e5,stroke:#8957e5,color:#ffffff
-  classDef profile fill:#6e7681,stroke:#6e7681,color:#ffffff
-  classDef action fill:#1f6feb,stroke:#1f6feb,color:#ffffff
-  class app,key event
-  class prof profile
-  class a1,r1,r2,a3,a4 action
-  style ref stroke-dasharray: 5 5
-```
+<img src="images/actions-flow.png" width="516" alt="How actions run: an application event (Started, Closed, Gained focus, Lost focus) or a keyboard shortcut or command line picks a profile; its actions run in order, with a delay before each one, a referenced profile inserted in place, and a Run program action that holds the next actions until it exits">
 
 When each action starts, with the delay set on each one:
 
-```mermaid
-%%{init: {"theme": "base", "gantt": {"leftPadding": 190, "barHeight": 24, "barGap": 8}, "themeVariables": {"fontSize": "14px", "textColor": "#8b949e", "titleColor": "#8b949e", "sectionBkgColor": "transparent", "altSectionBkgColor": "transparent", "sectionBkgColor2": "transparent", "gridColor": "#8b949e", "taskBkgColor": "#1f6feb", "taskBorderColor": "#1f6feb", "taskTextColor": "#ffffff", "taskTextLightColor": "#ffffff", "taskTextOutsideColor": "#8b949e", "taskTextDarkColor": "#ffffff", "activeTaskBkgColor": "#6e7681", "activeTaskBorderColor": "#6e7681", "critBkgColor": "#8957e5", "critBorderColor": "#8957e5", "todayLineColor": "transparent"}, "themeCSS": ".grid .tick line { stroke: #8b949e; opacity: 0.35; } .grid path { stroke-width: 0; }"}}%%
-gantt
-  dateFormat X
-  axisFormat %-S s
-  section Display, delay 0
-    HDR on, 2 s : a1, 0, 2s
-  section Run program, delay 3 s
-    delay 3 s : active, d1, 0, 3s
-    runs, next actions held : a2, after d1, 5s
-  section Hotkey, delay 0
-    starts when the program exits : milestone, m1, after a2, 0s
-  section Run program, delay 2 s
-    delay 2 s : active, d2, after a2, 2s
-    runs : a4, after d2, 1s
-```
+<img src="images/actions-timeline.png" width="800" alt="Timeline: HDR on takes 2 s; a Run program with a 3 s delay starts at 3 s and holds the next actions until it exits at 8 s; a Hotkey with no delay starts at 8 s; a Run program with a 2 s delay starts at 10 s">
 
 - Each action waits for the previous one to finish, and its delay counts from the start of the previous action, not from its end: above, the 3 s delay of Run program begins with HDR on, so the program starts 1 s after the 2 s display change. With a delay of 0, an action starts as soon as the previous one has finished.
 - **Hold next actions until this program finishes** makes the next actions wait for that program to exit, 30 s at most by default (**Stop holding after**). A delay that has already passed when the program exits adds nothing: the next action starts at once.

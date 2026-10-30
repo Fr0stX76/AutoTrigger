@@ -1,0 +1,14 @@
+%%{init: {"theme": "base", "gantt": {"leftPadding": 190, "barHeight": 24, "barGap": 8}, "themeVariables": {"fontSize": "14px", "textColor": "#8b949e", "titleColor": "#8b949e", "sectionBkgColor": "transparent", "altSectionBkgColor": "transparent", "sectionBkgColor2": "transparent", "gridColor": "#8b949e", "taskBkgColor": "#1f6feb", "taskBorderColor": "#1f6feb", "taskTextColor": "#ffffff", "taskTextLightColor": "#ffffff", "taskTextOutsideColor": "#8b949e", "taskTextDarkColor": "#ffffff", "activeTaskBkgColor": "#6e7681", "activeTaskBorderColor": "#6e7681", "critBkgColor": "#8957e5", "critBorderColor": "#8957e5", "todayLineColor": "transparent"}, "themeCSS": ".grid .tick line { stroke: #8b949e; opacity: 0.35; } .grid path { stroke-width: 0; }"}}%%
+gantt
+  dateFormat X
+  axisFormat %-S s
+  section Display, delay 0
+    HDR on, 2 s : a1, 0, 2s
+  section Run program, delay 3 s
+    delay 3 s : active, d1, 0, 3s
+    runs, next actions held : a2, after d1, 5s
+  section Hotkey, delay 0
+    starts when the program exits : milestone, m1, after a2, 0s
+  section Run program, delay 2 s
+    delay 2 s : active, d2, after a2, 2s
+    runs : a4, after d2, 1s

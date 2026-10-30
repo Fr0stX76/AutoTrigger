@@ -1,0 +1,21 @@
+%%{init: {"theme": "base", "themeVariables": {"fontSize": "15px", "lineColor": "#8b949e", "textColor": "#8b949e", "titleColor": "#8b949e", "clusterBkg": "transparent", "clusterBorder": "#8b949e", "edgeLabelBackground": "#6e7681", "primaryTextColor": "#ffffff"}}}%%
+flowchart TB
+  app(["Application event<br/>Started, Closed, Gained focus, Lost focus"]) --> prof
+  key(["Keyboard shortcut or command line<br/>/started, /closed"]) --> prof
+  prof["Profile: the actions of that event"] --> a1
+  subgraph run ["Actions run in order"]
+    direction TB
+    a1["Display: HDR on"] -->|"delay"| ref
+    subgraph ref ["Reference profile: its actions are inserted here"]
+      direction TB
+      r1["Windows settings: audio and power plan"] --> r2["Run program, hold until it exits"]
+    end
+    ref -->|"program exited"| a3["Hotkey"] -->|"delay"| a4["Run program"]
+  end
+  classDef event fill:#8957e5,stroke:#8957e5,color:#ffffff
+  classDef profile fill:#6e7681,stroke:#6e7681,color:#ffffff
+  classDef action fill:#1f6feb,stroke:#1f6feb,color:#ffffff
+  class app,key event
+  class prof profile
+  class a1,r1,r2,a3,a4 action
+  style ref stroke-dasharray: 5 5
