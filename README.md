@@ -11,6 +11,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 ## Use cases
 
 - Turn HDR on automatically when a game starts, and off when it closes.
+- Restart a game after turning HDR on, when the game only checks HDR at launch.
 - Use a different resolution or refresh rate for games and for the desktop, DSR and DLDSR included.
 - Switch the default audio output or input per game or app, for example to a headset.
 - Use the High performance power plan while a game, a video encoder or a 3D app runs, and a power saving plan afterwards.
@@ -31,6 +32,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
   - **Reference profile**: reuses the actions of another profile.
 - An optional name for Run program, Close program and Hotkey actions, shown on the action card and in the log.
 - Shared profiles, a monitoring switch per application and a global pause.
+- **Restart app**: once the Started actions are done, the program is closed and started again with the same arguments, for games that read HDR or the resolution only when they start.
 - Keyboard shortcuts and command line to run the Started or Closed actions of a profile on demand.
 - Windows Store apps, focus included.
 - Light and dark themes, following Windows by default.
@@ -122,6 +124,8 @@ To uninstall, uncheck Start with Windows, choose Exit, then delete the AutoTrigg
 ## FAQ
 
 **How do I turn HDR on automatically for one game?** Add the game in **Applications**, give it a profile with a **Display** action set to HDR on in **Started** and HDR off in **Closed**.
+
+**My game does not see that HDR is on.** Some games read the display settings only when they start. Turn on **Restart app** in the profile: once its Started actions are done, AutoTrigger closes the game and starts it again with the same arguments, without running the Closed or Started actions again. It is ignored when the profile runs from a keyboard shortcut or the command line, and a program run as administrator cannot be restarted.
 
 **Is this Windows Auto HDR?** No. Windows Auto HDR adds HDR to SDR games while HDR is already on. AutoTrigger turns HDR itself on and off, per game. Both can be used together.
 
