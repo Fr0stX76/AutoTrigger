@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using AutoTrigger.Core.Displays;
 using AutoTrigger.Core.Json;
 using AutoTrigger.Core.Logging;
@@ -36,6 +37,7 @@ namespace AutoTrigger.Core.Model
                 StartMinimized = Bool(root, "startMinimized", false),
                 CloseToTray = Bool(root, "closeToTray", false),
                 Theme = ParseTheme(Str(root, "theme", "auto")),
+                Language = ParseLanguage(Str(root, "language", string.Empty)),
                 FocusStabilityMs = Clamp((int)Num(root, "focusStabilityMs", AppSettings.DefaultFocusStabilityMs), 0, 5000),
                 StartPollMs = Clamp((int)Num(root, "startPollMs", AppSettings.DefaultStartPollMs), 50, 5000),
                 LogLevel = Log.ParseLevel(Str(root, "logLevel", "errors"), LogLevel.Error),
@@ -148,6 +150,7 @@ namespace AutoTrigger.Core.Model
                 .Set("startMinimized", settings.StartMinimized)
                 .Set("closeToTray", settings.CloseToTray)
                 .Set("theme", ThemeToText(settings.Theme))
+                .Set("language", settings.Language ?? string.Empty)
                 .Set("focusStabilityMs", settings.FocusStabilityMs)
                 .Set("startPollMs", settings.StartPollMs)
                 .Set("logLevel", Log.LevelToText(settings.LogLevel))
@@ -258,6 +261,13 @@ namespace AutoTrigger.Core.Model
         private static JsonValue GuidValue(Guid id) => id == Guid.Empty ? JsonValue.Null : JsonValue.FromString(id.ToString("D"));
 
         private static int Clamp(int value, int min, int max) => Math.Max(min, Math.Min(max, value));
+
+        // Only the shape of a language code is kept; a code AutoTrigger does not have falls back when used.
+        private static string ParseLanguage(string text)
+        {
+            string code = (text ?? string.Empty).Trim();
+            return code.Length <= 16 && code.All(c => c < 128 && (char.IsLetter(c) || c == '-')) ? code : string.Empty;
+        }
 
         private static ThemeMode ParseTheme(string text)
         {

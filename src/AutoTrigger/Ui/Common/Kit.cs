@@ -12,6 +12,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 using ToggleSwitch = Wpf.Ui.Controls.ToggleSwitch;
 using UiButton = Wpf.Ui.Controls.Button;
 using UiControlAppearance = Wpf.Ui.Controls.ControlAppearance;
@@ -139,6 +140,15 @@ namespace AutoTrigger.Ui
         public static TextBlock Heading(string text, double size = 20) => Res.Text(text, size, FontWeights.SemiBold);
 
         public static TextBlock Caption(string text) => Res.Text(text, 12);
+
+        // Width of a text as the window draws it, so a column can fit the longest text of the active language.
+        public static double TextWidth(Visual visual, string text, double size, FontWeight weight)
+        {
+            var typeface = new Typeface(TextElement.GetFontFamily(visual), FontStyles.Normal, weight, FontStretches.Normal);
+            var formatted = new FormattedText(text ?? string.Empty, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+                typeface, size, Brushes.Black, VisualTreeHelper.GetDpi(visual).PixelsPerDip);
+            return Math.Ceiling(formatted.WidthIncludingTrailingWhitespace) + 2;
+        }
 
         public static TextBlock Link(Run text, Action clicked, double size = 14)
         {
@@ -394,7 +404,7 @@ namespace AutoTrigger.Ui
         {
             var list = new List<KeyValuePair<Guid, string>>();
             if (withNone)
-                list.Add(new KeyValuePair<Guid, string>(Guid.Empty, Texts.None));
+                list.Add(new KeyValuePair<Guid, string>(Guid.Empty, Texts.ProfileNone));
             list.AddRange(settings.Profiles
                 .OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
                 .Select(p => new KeyValuePair<Guid, string>(p.Id, ActionText.ProfileName(p.Name))));
@@ -404,7 +414,8 @@ namespace AutoTrigger.Ui
         public static Grid PairGrid(double labelWidth = LabelWidth, double gap = Spacing.Section)
         {
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(labelWidth) });
+            // At least the usual width, and wider when a language has longer labels.
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = labelWidth });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(gap) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             return grid;

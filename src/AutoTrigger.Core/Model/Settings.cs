@@ -48,6 +48,9 @@ namespace AutoTrigger.Core.Model
 
         public ThemeMode Theme { get; set; } = ThemeMode.Auto;
 
+        // A language code such as "fr", or empty for the Windows display language.
+        public string Language { get; set; } = string.Empty;
+
         public int FocusStabilityMs { get; set; } = DefaultFocusStabilityMs;
 
         public int StartPollMs { get; set; } = DefaultStartPollMs;
@@ -76,6 +79,7 @@ namespace AutoTrigger.Core.Model
             StartMinimized = defaults.StartMinimized;
             CloseToTray = defaults.CloseToTray;
             Theme = defaults.Theme;
+            Language = defaults.Language;
             FocusStabilityMs = defaults.FocusStabilityMs;
             StartPollMs = defaults.StartPollMs;
             LogLevel = defaults.LogLevel;

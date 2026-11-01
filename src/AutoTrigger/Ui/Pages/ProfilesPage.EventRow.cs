@@ -10,6 +10,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 using UiButton = Wpf.Ui.Controls.Button;
 using UiTextBox = Wpf.Ui.Controls.TextBox;
 
@@ -23,6 +24,9 @@ namespace AutoTrigger.Ui
             private readonly Profile _profile;
             private readonly EventKind _kind;
             private const double CardGap = 8;
+            private const double CardPaddingWidth = 12 + 10 + 2;
+            private const double BadgeSize = 18;
+            private const double ActionButtonSize = 24;
             private const double MarkerWidth = 3;
 
             private readonly StackPanel _cards = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 0, 0, 0) };
@@ -175,7 +179,7 @@ namespace AutoTrigger.Ui
                     Width = CardWidth,
                     Height = CardHeight,
                     Margin = new Thickness(0, 0, CardGap, 0),
-                    Padding = new Thickness(12, 8, 10, 10),
+                    Padding = new Thickness(12, 10, 10, 10),
                     CornerRadius = new CornerRadius(6),
                     BorderThickness = new Thickness(1),
                     Tag = action,
@@ -189,63 +193,77 @@ namespace AutoTrigger.Ui
                 grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-                grid.Children.Add(CardHeader(action, index, issue));
+                grid.Children.Add(CardTitle(action, index, issue));
 
                 TextBlock name = Res.Text(ActionText.Summary(action, _page.Settings), 14, FontWeights.SemiBold);
-                name.Margin = Spacing.Top(Spacing.Tight);
+                name.Margin = Spacing.Top(10);
                 string details = ActionText.Details(action, _page.Settings);
                 if (!string.IsNullOrEmpty(details))
                     name.ToolTip = details;
                 Grid.SetRow(name, 1);
                 grid.Children.Add(name);
 
-                UIElement delay = DelayRow(action);
-                Grid.SetRow(delay, 3);
-                grid.Children.Add(delay);
+                Grid footer = CardFooter(action, index);
+                Grid.SetRow(footer, 3);
+                grid.Children.Add(footer);
 
                 card.Child = grid;
                 EnableDrag(card, action);
                 return card;
             }
 
-            private Grid CardHeader(ProfileAction action, int index, ValidationIssue issue)
+            // The type keeps the rest of the line beside the position: in some languages it is three or four words.
+            private Grid CardTitle(ProfileAction action, int index, ValidationIssue issue)
             {
-                var header = new Grid();
-                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                header.Children.Add(PositionBadge(index));
+                var title = new Grid();
+                title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                title.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                title.Children.Add(PositionBadge(index));
 
                 string typeText = issue != null ? IssueText(issue.Kind) : ActionText.TypeName(action);
                 TextBlock type = Res.Text(typeText, 12, null, issue != null ? Res.Critical : Res.TextPrimary);
-                type.Margin = new Thickness(Spacing.Small, 0, Spacing.Tight, 0);
+                type.Margin = Spacing.Left(Spacing.Small);
+                type.VerticalAlignment = VerticalAlignment.Center;
+                if (Kit.TextWidth(this, typeText, 12, FontWeights.Normal) > CardWidth - CardPaddingWidth - BadgeSize - Spacing.Small)
+                    type.ToolTip = typeText;
                 Grid.SetColumn(type, 1);
-                header.Children.Add(type);
+                title.Children.Add(type);
+                return title;
+            }
 
-                var edit = Kit.IconButton(Kit.IconPencil, Texts.EditAction, 28, true, 14);
+            private Grid CardFooter(ProfileAction action, int index)
+            {
+                var footer = new Grid();
+                footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                footer.Children.Add(DelayRow(action));
+
+                var edit = Kit.IconButton(Kit.IconPencil, Texts.EditAction, ActionButtonSize, true, 12);
+                edit.VerticalAlignment = VerticalAlignment.Center;
                 edit.Click += (s, e) => Edit(action, index + 1);
-                Grid.SetColumn(edit, 2);
-                header.Children.Add(edit);
+                Grid.SetColumn(edit, 1);
+                footer.Children.Add(edit);
 
-                var remove = Kit.IconButton(Kit.IconMinusSmall, Texts.RemoveAction, 28, true, 14);
+                var remove = Kit.IconButton(Kit.IconMinusSmall, Texts.RemoveAction, ActionButtonSize, true, 12);
+                remove.VerticalAlignment = VerticalAlignment.Center;
                 remove.Click += (s, e) =>
                 {
                     Actions.Remove(action);
                     Changed();
                 };
-                Grid.SetColumn(remove, 3);
-                header.Children.Add(remove);
-                return header;
+                Grid.SetColumn(remove, 2);
+                footer.Children.Add(remove);
+                return footer;
             }
 
             private static Border PositionBadge(int index)
             {
                 var badge = new Border
                 {
-                    Width = 18,
-                    Height = 18,
-                    CornerRadius = new CornerRadius(9),
+                    Width = BadgeSize,
+                    Height = BadgeSize,
+                    CornerRadius = new CornerRadius(BadgeSize / 2),
                     BorderThickness = new Thickness(1),
                     VerticalAlignment = VerticalAlignment.Center,
                 };

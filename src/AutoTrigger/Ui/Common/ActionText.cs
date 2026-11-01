@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using AutoTrigger.Core.Displays;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 
 namespace AutoTrigger.Ui
 {
@@ -19,6 +20,16 @@ namespace AutoTrigger.Ui
                 case EventKind.Closed: return Texts.EventClosed;
                 case EventKind.GotFocus: return Texts.EventGotFocus;
                 default: return Texts.EventLostFocus;
+            }
+        }
+
+        public static string RangeName(string range)
+        {
+            switch (range)
+            {
+                case ColorSetting.Full: return Texts.RangeFull;
+                case ColorSetting.Limited: return Texts.RangeLimited;
+                default: return range ?? string.Empty;
             }
         }
 
@@ -127,7 +138,7 @@ namespace AutoTrigger.Ui
                 DisplayEntry entry = settings.Displays.Find(x => x.Id == d.DisplayId);
                 parts.Add(entry == null ? Texts.MissingDisplay
                     : !string.IsNullOrEmpty(entry.FriendlyName) ? entry.FriendlyName
-                    : entry.LegacyUid >= 0 ? Texts.Format(Texts.ImportedDisplay, entry.LegacyUid) : Texts.Display);
+                    : entry.LegacyUid >= 0 ? Texts.ImportedDisplay(entry.LegacyUid) : Texts.Display);
             }
             if (d.Hdr == HdrChange.On)
                 parts.Add(Texts.HdrOn);
@@ -144,7 +155,7 @@ namespace AutoTrigger.Ui
             if (!string.IsNullOrEmpty(d.ColorFormat))
                 parts.Add(ColorSetting.FormatName(d.ColorFormat));
             if (!string.IsNullOrEmpty(d.DynamicRange))
-                parts.Add(ColorSetting.RangeName(d.DynamicRange));
+                parts.Add(RangeName(d.DynamicRange));
             return parts.Count == 1 ? parts[0] + " · " + Texts.NoChange : string.Join(" · ", parts);
         }
 
@@ -163,7 +174,7 @@ namespace AutoTrigger.Ui
         {
             if (count == 0)
                 return Texts.NoActions;
-            return CountText.Of(count, "action");
+            return Texts.ActionCount(count);
         }
 
         private static string SafeFileName(string path)

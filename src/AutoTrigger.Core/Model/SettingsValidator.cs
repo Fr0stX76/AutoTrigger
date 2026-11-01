@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using AutoTrigger.Core.Text;
 
 namespace AutoTrigger.Core.Model
 {
@@ -28,7 +29,7 @@ namespace AutoTrigger.Core.Model
 
         public int ActionIndex { get; set; } = -1;
 
-        public string Message { get; set; }
+        public Note Note { get; set; }
     }
 
     public static class SettingsValidator
@@ -63,24 +64,26 @@ namespace AutoTrigger.Core.Model
             {
                 if (app.ProfileId == Guid.Empty || settings.FindProfile(app.ProfileId) != null)
                     continue;
+                string name = app.Name;
                 issues.Add(new ValidationIssue
                 {
                     Kind = IssueKind.MissingApplicationProfile,
                     ApplicationId = app.Id,
-                    Message = $"Application '{app.Name}' is assigned to a profile that does not exist.",
+                    Note = new Note(() => Texts.IssueApplicationProfile(name)),
                 });
             }
         }
 
         private static ValidationIssue CheckAction(AppSettings settings, Profile profile, EventKind kind, ProfileAction action)
         {
+            string profileName = profile.Name;
             if (action is DisplayAction display && display.DisplayId != Guid.Empty
                 && !settings.Displays.Exists(d => d.Id == display.DisplayId))
             {
                 return new ValidationIssue
                 {
                     Kind = IssueKind.MissingDisplay,
-                    Message = $"Profile '{profile.Name}' ({EventNames.Of(kind)}): display action for a display that is no longer in the list.",
+                    Note = new Note(() => Texts.IssueDisplay(profileName, EventText(kind))),
                 };
             }
             if (!(action is IncludeProfileAction include))
@@ -92,18 +95,30 @@ namespace AutoTrigger.Core.Model
                 return new ValidationIssue
                 {
                     Kind = IssueKind.MissingProfile,
-                    Message = $"Profile '{profile.Name}' ({EventNames.Of(kind)}): referenced profile does not exist.",
+                    Note = new Note(() => Texts.IssueReference(profileName, EventText(kind))),
                 };
             }
             if (target.Id == profile.Id || CanReach(settings, kind, target.Id, profile.Id))
             {
+                string targetName = target.Name;
                 return new ValidationIssue
                 {
                     Kind = IssueKind.Loop,
-                    Message = $"Profile '{profile.Name}' ({EventNames.Of(kind)}): reference to '{target.Name}' makes a loop.",
+                    Note = new Note(() => Texts.IssueLoop(profileName, EventText(kind), targetName)),
                 };
             }
             return null;
+        }
+
+        public static string EventText(EventKind kind)
+        {
+            switch (kind)
+            {
+                case EventKind.Started: return Texts.EventStarted;
+                case EventKind.Closed: return Texts.EventClosed;
+                case EventKind.GotFocus: return Texts.EventGotFocus;
+                default: return Texts.EventLostFocus;
+            }
         }
 
         public static bool CanReach(AppSettings settings, EventKind kind, Guid from, Guid to)

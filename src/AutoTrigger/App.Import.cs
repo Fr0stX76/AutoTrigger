@@ -7,6 +7,7 @@ using System.Text;
 using AutoTrigger.Core.Logging;
 using AutoTrigger.Core.Model;
 using AutoTrigger.Core.Platform;
+using AutoTrigger.Core.Text;
 using AutoTrigger.Ui;
 
 namespace AutoTrigger
@@ -27,7 +28,7 @@ namespace AutoTrigger
             catch (Exception ex) when (ex is FormatException || ex is IOException || ex is UnauthorizedAccessException)
             {
                 Log.Error($"Import from AutoActions failed ({file}): {ex.Message}");
-                ShowImportError(ex.Message);
+                ShowImportError(ex is ImportException import && import.Note != null ? import.Note.Text : ex.Message);
                 return;
             }
 
@@ -85,7 +86,7 @@ namespace AutoTrigger
         // Windows' own messages end with a period, and the sentence adds its own.
         private void ShowImportError(string reason) =>
             MessageDialog.Show(_window, Texts.ImportFromAutoActions,
-                Texts.Format(Texts.ImportFailed, (reason ?? string.Empty).TrimEnd('.', ' ')), Texts.Ok);
+                Texts.ImportFailed((reason ?? string.Empty).TrimEnd('.', ' ')), Texts.Ok);
 
         private void ApplyImport(ImportResult result)
         {
@@ -105,16 +106,18 @@ namespace AutoTrigger
             Log.Info($"Imported from AutoActions ({file}): {CountText.Of(result.Applications.Count, "application")}, "
                 + $"{CountText.Of(result.Profiles.Count, "profile")}, {CountText.Of(result.ActionCount, "action")}, "
                 + $"{CountText.Of(result.Displays.Count, "display")}{copied}");
-            foreach (string warning in result.Warnings)
-                Log.Warning("Import: " + warning);
+            foreach (Note warning in result.Warnings)
+                Log.Warning("Import: " + warning.English);
         }
 
         private static string ImportSummary(ImportResult result)
         {
             const int shownNotes = 8;
-            var text = new StringBuilder(Texts.Format(Texts.ImportDone, CountText.Of(result.Applications.Count, "application"),
-                CountText.Of(result.Profiles.Count, "profile"), CountText.Of(result.ActionCount, "action"),
-                CountText.Of(result.Displays.Count, "display")));
+            var text = new StringBuilder(Texts.ImportedHeading)
+                .Append("\n• ").Append(Texts.ImportedApplications(result.Applications.Count))
+                .Append("\n• ").Append(Texts.ImportedProfiles(result.Profiles.Count))
+                .Append("\n• ").Append(Texts.ImportedActions(result.ActionCount))
+                .Append("\n• ").Append(Texts.ImportedDisplays(result.Displays.Count));
             List<string> programs = ProgramsStarted(result);
             if (programs.Count > 0)
             {
@@ -122,15 +125,15 @@ namespace AutoTrigger
                 foreach (string program in programs.Take(shownNotes))
                     text.Append("\n• ").Append(program);
                 if (programs.Count > shownNotes)
-                    text.Append('\n').Append(Texts.Format(Texts.ImportMoreNotes, programs.Count - shownNotes));
+                    text.Append('\n').Append(Texts.ImportMoreNotes(programs.Count - shownNotes));
             }
             if (result.Warnings.Count > 0)
             {
                 text.Append("\n\n").Append(Texts.ImportNotes);
-                foreach (string warning in result.Warnings.Take(shownNotes))
-                    text.Append("\n• ").Append(warning);
+                foreach (Note warning in result.Warnings.Take(shownNotes))
+                    text.Append("\n• ").Append(warning.Text);
                 if (result.Warnings.Count > shownNotes)
-                    text.Append('\n').Append(Texts.Format(Texts.ImportMoreNotes, result.Warnings.Count - shownNotes));
+                    text.Append('\n').Append(Texts.ImportMoreNotes(result.Warnings.Count - shownNotes));
             }
             if (IsAutoActionsRunning())
                 text.Append("\n\n").Append(Texts.ImportQuitAutoActions);

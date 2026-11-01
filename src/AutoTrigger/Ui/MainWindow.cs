@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Threading;
+using AutoTrigger.Core.Text;
 using FluentWindow = Wpf.Ui.Controls.FluentWindow;
 using UiButton = Wpf.Ui.Controls.Button;
 using UiControlAppearance = Wpf.Ui.Controls.ControlAppearance;
@@ -21,6 +22,7 @@ namespace AutoTrigger.Ui
         public const int StatusTab = 0;
         public const int ProfilesTab = 2;
         public const int DisplaysTab = 3;
+        public const int SettingsTab = 4;
 
         private readonly TabStrip _tabs;
         private readonly Border _host = new Border();
@@ -94,7 +96,7 @@ namespace AutoTrigger.Ui
 
         public void ShowUpdate(string version)
         {
-            _updateText.Text = version == null ? string.Empty : Texts.Format(Texts.UpdateAvailable, version);
+            _updateText.Text = version == null ? string.Empty : Texts.UpdateAvailable(version);
             _update.Visibility = version == null ? Visibility.Collapsed : Visibility.Visible;
         }
 

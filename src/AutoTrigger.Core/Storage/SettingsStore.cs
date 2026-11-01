@@ -7,6 +7,7 @@ using System.Threading;
 using AutoTrigger.Core.Json;
 using AutoTrigger.Core.Logging;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 
 namespace AutoTrigger.Core.Storage
 {
@@ -27,7 +28,7 @@ namespace AutoTrigger.Core.Storage
 
         public LoadSource Source { get; set; }
 
-        public string Message { get; set; }
+        public Note Message { get; set; }
 
         public List<string> Warnings { get; } = new List<string>();
     }
@@ -84,8 +85,7 @@ namespace AutoTrigger.Core.Storage
                 _readOnly = true;
                 result.Settings = new AppSettings();
                 result.Source = LoadSource.Locked;
-                result.Message = "settings.json could not be opened; another program may be using it. "
-                    + "AutoTrigger started without your settings and will not save any change until it is restarted.";
+                result.Message = new Note(() => Texts.SettingsLocked);
                 Log.Error($"settings.json cannot be opened: {ex.Message}. Changes will not be saved.");
                 return result;
             }
@@ -110,15 +110,14 @@ namespace AutoTrigger.Core.Storage
                 // The damaged file is still in place: saving would overwrite it, and it may be the only copy.
                 _readOnly = true;
                 result.Source = LoadSource.Locked;
-                result.Message = "settings.json could not be read, nor set aside. "
-                    + "AutoTrigger started without your settings and will not save any change until it is restarted.";
-                Log.Error(result.Message);
+                result.Message = new Note(() => Texts.SettingsUnreadable);
+                Log.Error(result.Message.English);
                 return result;
             }
             result.Source = LoadSource.Reset;
-            result.Message = $"settings.json could not be read and was set aside ({Path.GetFileName(moved)}). "
-                + "AutoTrigger started with empty settings.";
-            Log.Error(result.Message);
+            string file = Path.GetFileName(moved);
+            result.Message = new Note(() => Texts.SettingsSetAside(file));
+            Log.Error(result.Message.English);
             return result;
         }
 

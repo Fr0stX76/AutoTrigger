@@ -18,7 +18,7 @@ namespace AutoTrigger.Core.Engine
 
         private long _t0;
         private int _next;
-        private long _previousStart;
+        private long _previousEnd;
         private PlannedAction _running;
         private IDisposable _timer;
         private IDisposable _holdCapTimer;
@@ -57,7 +57,7 @@ namespace AutoTrigger.Core.Engine
                 return;
             _started = true;
             _t0 = _scheduler.NowMs;
-            _previousStart = _t0;
+            _previousEnd = _t0;
             Advance();
         }
 
@@ -111,8 +111,8 @@ namespace AutoTrigger.Core.Engine
 
             PlannedAction planned = _plan[_next];
             long now = _scheduler.NowMs;
-            // A delay counts from the start of the previous action, so a slow action does not push back the ones after it.
-            long due = _fast ? now : _previousStart + planned.DelayMs;
+            // A delay counts from the end of the previous action, so a slow display change still gets its full settling time.
+            long due = _fast ? now : _previousEnd + planned.DelayMs;
             if (due > now)
             {
                 _timer?.Dispose();
@@ -125,9 +125,6 @@ namespace AutoTrigger.Core.Engine
             }
 
             _next++;
-            if (planned.DelayMs > 0 && now - due > 50 && _next > 1)
-                Log.Detailed($"{_prefix} {Describe(planned)}: the previous action took longer than the {planned.DelayMs} ms delay; "
-                    + $"starting at +{now - _t0} ms");
             Launch(planned, now);
         }
 
@@ -135,7 +132,6 @@ namespace AutoTrigger.Core.Engine
         {
             long offset = now - _t0;
             _running = planned;
-            _previousStart = now;
 
             if (planned.Action is RunProgramAction run && run.HoldNext && !_fast)
                 _holdCapTimer = _scheduler.Schedule(run.HoldCapSec * 1000, () => ReleaseHold(planned, run.HoldCapSec, false));
@@ -209,6 +205,7 @@ namespace AutoTrigger.Core.Engine
             _holdCapTimer = null;
 
             _running = null;
+            _previousEnd = _scheduler.NowMs;
             Advance();
         }
 
@@ -218,6 +215,7 @@ namespace AutoTrigger.Core.Engine
                 return;
             _running = null;
             _holding = false;
+            _previousEnd = _scheduler.NowMs;
             _holdCapTimer?.Dispose();
             _holdCapTimer = null;
             if (fastTracked)

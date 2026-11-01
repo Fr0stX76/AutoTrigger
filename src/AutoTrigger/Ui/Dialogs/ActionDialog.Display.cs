@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using AutoTrigger.Core.Displays;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 using UiButton = Wpf.Ui.Controls.Button;
 using UiControlAppearance = Wpf.Ui.Controls.ControlAppearance;
 
@@ -57,9 +58,9 @@ namespace AutoTrigger.Ui
             var hdrRow = new StackPanel { Orientation = Orientation.Horizontal };
             foreach (KeyValuePair<HdrChange, string> choice in new[]
             {
-                new KeyValuePair<HdrChange, string>(HdrChange.Unchanged, Texts.Unchanged),
-                new KeyValuePair<HdrChange, string>(HdrChange.On, Texts.On),
-                new KeyValuePair<HdrChange, string>(HdrChange.Off, Texts.Off),
+                new KeyValuePair<HdrChange, string>(HdrChange.Unchanged, Texts.HdrChoiceUnchanged),
+                new KeyValuePair<HdrChange, string>(HdrChange.On, Texts.HdrChoiceOn),
+                new KeyValuePair<HdrChange, string>(HdrChange.Off, Texts.HdrChoiceOff),
             })
             {
                 HdrChange value = choice.Key;
@@ -136,7 +137,7 @@ namespace AutoTrigger.Ui
                 MonitorInfo monitor = _displays?.MonitorOf(entry);
                 string name = !string.IsNullOrEmpty(monitor?.FriendlyName) ? monitor.FriendlyName
                     : !string.IsNullOrEmpty(entry.FriendlyName) ? entry.FriendlyName
-                    : entry.LegacyUid >= 0 ? Texts.Format(Texts.ImportedDisplay, entry.LegacyUid) : Texts.Display;
+                    : entry.LegacyUid >= 0 ? Texts.ImportedDisplay(entry.LegacyUid) : Texts.Display;
                 if (monitor == null)
                     name += " · " + Texts.NotConnectedShort;
                 else if (monitor.IsPrimary)
@@ -172,7 +173,7 @@ namespace AutoTrigger.Ui
         {
             _caps = TargetCapabilities();
 
-            var sizes = new List<KeyValuePair<PixelSize, string>> { new KeyValuePair<PixelSize, string>(default, Texts.Unchanged) };
+            var sizes = new List<KeyValuePair<PixelSize, string>> { new KeyValuePair<PixelSize, string>(default, Texts.ResolutionUnchanged) };
             sizes.AddRange(_caps.DesktopSizes.Select(s => new KeyValuePair<PixelSize, string>(s, s.ToString())));
             if (_size.IsSet && !_caps.DesktopSizes.Contains(_size))
                 sizes.Add(new KeyValuePair<PixelSize, string>(_size, NotOffered(_size.ToString())));
@@ -180,7 +181,7 @@ namespace AutoTrigger.Ui
 
             var rates = new List<KeyValuePair<string, string>>
             {
-                new KeyValuePair<string, string>(string.Empty, Texts.Unchanged),
+                new KeyValuePair<string, string>(string.Empty, Texts.RefreshRateUnchanged),
                 new KeyValuePair<string, string>(MaxKey, Texts.Maximum),
             };
             string selectedRate = _rateMax ? MaxKey : string.Empty;
@@ -215,7 +216,7 @@ namespace AutoTrigger.Ui
             List<ColorSetting> forFormat = format.Length > 0 ? offered.Where(c => c.Format == format).ToList() : offered;
             List<ColorSetting> forDepth = _bpc > 0 ? forFormat.Where(c => c.Bpc == _bpc).ToList() : forFormat;
 
-            var formats = new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>(string.Empty, Texts.Unchanged) };
+            var formats = new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>(string.Empty, Texts.OutputFormatUnchanged) };
             foreach (string f in ColorSetting.Formats.Where(f => offered.Any(c => c.Format == f)))
                 formats.Add(new KeyValuePair<string, string>(f, ColorSetting.FormatName(f)));
             if (_colorFormat.Length > 0 && formats.All(f => f.Key != _colorFormat))
@@ -226,7 +227,7 @@ namespace AutoTrigger.Ui
                 RefreshColorLists();
             }, 0));
 
-            var depths = new List<KeyValuePair<int, string>> { new KeyValuePair<int, string>(0, Texts.Unchanged) };
+            var depths = new List<KeyValuePair<int, string>> { new KeyValuePair<int, string>(0, Texts.ColorDepthUnchanged) };
             foreach (int d in forFormat.Select(c => c.Bpc).Distinct().OrderBy(d => d))
                 depths.Add(new KeyValuePair<int, string>(d, d + " bpc"));
             if (_bpc > 0 && depths.All(d => d.Key != _bpc))
@@ -237,11 +238,11 @@ namespace AutoTrigger.Ui
                 RefreshColorLists();
             }, 0));
 
-            var ranges = new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>(string.Empty, Texts.Unchanged) };
+            var ranges = new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>(string.Empty, Texts.DynamicRangeUnchanged) };
             foreach (string r in ColorSetting.Ranges.Where(r => forDepth.Any(c => c.Range == r)))
-                ranges.Add(new KeyValuePair<string, string>(r, ColorSetting.RangeName(r)));
+                ranges.Add(new KeyValuePair<string, string>(r, ActionText.RangeName(r)));
             if (_colorRange.Length > 0 && ranges.All(r => r.Key != _colorRange))
-                ranges.Add(new KeyValuePair<string, string>(_colorRange, NotOffered(ColorSetting.RangeName(_colorRange))));
+                ranges.Add(new KeyValuePair<string, string>(_colorRange, NotOffered(ActionText.RangeName(_colorRange))));
             _rangeHost.Child = Stretch(Kit.Combo(ranges, _colorRange, v => _colorRange = v, 0));
         }
 
@@ -266,7 +267,7 @@ namespace AutoTrigger.Ui
             return combo;
         }
 
-        private static string NotOffered(string text) => text + " (" + Texts.NotOffered + ")";
+        private static string NotOffered(string text) => Texts.NotOffered(text);
 
         private bool TrySaveDisplay(int delay)
         {

@@ -9,6 +9,7 @@ using System.Windows.Shapes;
 using AutoTrigger.Core.Displays;
 using AutoTrigger.Core.Logging;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 
 namespace AutoTrigger.Ui
 {
@@ -77,8 +78,8 @@ namespace AutoTrigger.Ui
         private static string HdrText(MonitorInfo monitor)
         {
             if (monitor.HdrOn)
-                return Texts.On;
-            return monitor.HdrSupported ? Texts.OffSupported : Texts.NotSupported;
+                return Texts.DisplayHdrOn;
+            return monitor.HdrSupported ? Texts.DisplayHdrOffSupported : Texts.DisplayHdrNotSupported;
         }
 
         private Border Card(DisplayEntry entry, MonitorInfo monitor)
@@ -118,7 +119,7 @@ namespace AutoTrigger.Ui
                 return monitor.FriendlyName;
             if (!string.IsNullOrEmpty(entry.FriendlyName))
                 return entry.FriendlyName;
-            return entry.LegacyUid >= 0 ? Texts.Format(Texts.ImportedDisplay, entry.LegacyUid) : Texts.Display;
+            return entry.LegacyUid >= 0 ? Texts.ImportedDisplay(entry.LegacyUid) : Texts.Display;
         }
 
         private Border CardHeader(DisplayEntry entry, string name)
@@ -192,7 +193,7 @@ namespace AutoTrigger.Ui
         }
 
         private static string FormatText(ColorSetting color) =>
-            color == null ? null : ColorSetting.FormatName(color.Format) + " · " + ColorSetting.RangeName(color.Range);
+            color == null ? null : ColorSetting.FormatName(color.Format) + " · " + ActionText.RangeName(color.Range);
 
         private Border CardFooter(DisplayEntry entry, MonitorInfo monitor, string name)
         {

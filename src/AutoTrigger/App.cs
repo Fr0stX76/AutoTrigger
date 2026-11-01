@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -17,6 +19,7 @@ using AutoTrigger.Core.Logging;
 using AutoTrigger.Core.Model;
 using AutoTrigger.Core.Platform;
 using AutoTrigger.Core.Storage;
+using AutoTrigger.Core.Text;
 using AutoTrigger.Ui;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Markup;
@@ -38,6 +41,8 @@ namespace AutoTrigger
         private HotkeyService _hotkeys;
         private CommandServer _commands;
         private readonly Command _startCommand;
+        private readonly bool _restarted;
+        private string _language;
         private ActionExecutor _executor;
         private EngineLoop _loop;
         private ForegroundWatcher _foreground;
@@ -53,10 +58,11 @@ namespace AutoTrigger
         private bool _exiting;
         private int _statePending;
 
-        public App(SingleInstance instance, Command startCommand)
+        public App(SingleInstance instance, Command startCommand, bool restarted)
         {
             _instance = instance;
             _startCommand = startCommand ?? Command.Parse(null);
+            _restarted = restarted;
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
         }
 
@@ -82,6 +88,7 @@ namespace AutoTrigger
             string dataDir = SettingsStore.DefaultDirectory;
             StartLog(dataDir);
             LoadResult loaded = LoadSettings(dataDir);
+            UseLanguage(dataDir);
 
             Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = ApplicationTheme.Dark });
             Resources.MergedDictionaries.Add(new ControlsDictionary());
@@ -102,10 +109,12 @@ namespace AutoTrigger
             if (_startCommand.RunsProfile)
                 _engine.RunProfileNamed(_startCommand.ProfileName, _startCommand.Event, "command line");
 
-            if (!_settings.StartMinimized && _startCommand.Kind == CommandKind.None)
+            if ((_restarted || !_settings.StartMinimized) && _startCommand.Kind == CommandKind.None)
                 ShowWindow();
-            if (!string.IsNullOrEmpty(loaded.Message))
-                MessageDialog.Show(_window, Texts.SettingsProblemTitle, loaded.Message, Texts.Ok);
+            if (_restarted)
+                _window.ShowTab(Ui.MainWindow.SettingsTab);
+            if (loaded.Message != null)
+                MessageDialog.Show(_window, Texts.SettingsProblemTitle, loaded.Message.Text, Texts.Ok);
 
             _instance.Listen(() => Dispatcher.BeginInvoke(new Action(ShowWindow)));
             _commands = new CommandServer(CommandChannel.PipeName, HandleCommand, CommandPipe.CreateSecured);
@@ -145,9 +154,46 @@ namespace AutoTrigger
             foreach (string warning in loaded.Warnings)
                 Log.Warning(warning);
             foreach (ValidationIssue issue in SettingsValidator.Validate(_settings))
-                Log.Warning(issue.Message);
+                Log.Warning(issue.Note.English);
             _store.RemoveOldCopies();
             return loaded;
+        }
+
+        // Read once at start: a new language applies after a restart, so no window ever mixes two languages.
+        private void UseLanguage(string dataDir)
+        {
+            _language = Languages.Resolve(_settings.Language, Program.SystemCulture);
+            var report = new List<string>();
+            var problems = new List<string>();
+            TextCatalog.Activate(TextCatalog.Load(_language, dataDir, report, problems));
+            CultureInfo culture = Languages.UiCulture(_language, Program.SystemCulture);
+            CultureInfo.DefaultThreadCurrentUICulture = culture;
+            Thread.CurrentThread.CurrentUICulture = culture;
+            string source = string.IsNullOrEmpty(_settings.Language) ? "Windows display language " + Program.SystemCulture : "setting";
+            Log.Info($"Language: {_language} ({source})");
+            foreach (string line in report)
+                Log.Info("Language: " + line);
+            foreach (string line in problems)
+                Log.Warning("Language: " + line);
+        }
+
+        private void RestartForLanguage()
+        {
+            try
+            {
+                string arguments;
+                using (Process self = Process.GetCurrentProcess())
+                    arguments = Program.RestartedArgument + " " + self.Id.ToString(CultureInfo.InvariantCulture);
+                Process.Start(new ProcessStartInfo(_exePath, arguments) { UseShellExecute = false })?.Dispose();
+            }
+            catch (Exception ex) when (ex is Win32Exception || ex is InvalidOperationException || ex is IOException)
+            {
+                Log.Error("AutoTrigger could not be restarted", ex);
+                MessageDialog.Show(_window, Texts.AppName, Texts.RestartFailed(ex.Message), Texts.Ok);
+                return;
+            }
+            Log.Info("AutoTrigger is restarting to use another language");
+            ExitApp();
         }
 
         private void CreateServices(string dataDir)
@@ -177,7 +223,7 @@ namespace AutoTrigger
                 new ApplicationsPage(_controller, _processes, _icons, () => _window),
                 _profilesPage,
                 new DisplaysPage(_controller, _displays, () => _window),
-                new SettingsPage(_controller, IsStartWithWindows, SetStartWithWindows, OpenLog, ImportFromAutoActions),
+                new SettingsPage(_controller, IsStartWithWindows, SetStartWithWindows, OpenLog, ImportFromAutoActions, _language, RestartForLanguage),
             };
             _window = new MainWindow(status, pages, _version, _settings.WindowWidth, _settings.WindowHeight);
             MainWindow = _window;
@@ -321,7 +367,7 @@ namespace AutoTrigger
             Log.Stop(TimeSpan.FromSeconds(2));
             try
             {
-                MessageBox.Show(Texts.Format(Texts.StartupError, Log.FilePath), Texts.AppName, MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(Texts.StartupError(Log.FilePath), Texts.AppName, MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch (Exception)
             {
@@ -405,7 +451,7 @@ namespace AutoTrigger
             catch (Exception ex) when (IsRegistryError(ex))
             {
                 Log.Error("Start with Windows could not be changed", ex);
-                MessageDialog.Show(_window, Texts.StartWithWindows, Texts.Format(Texts.StartupFailed, ex.Message), Texts.Ok);
+                MessageDialog.Show(_window, Texts.StartWithWindows, Texts.StartupFailed(ex.Message), Texts.Ok);
             }
         }
 
@@ -426,21 +472,21 @@ namespace AutoTrigger
                 string message = t.Exception?.GetBaseException().Message ?? "unknown error";
                 Log.Error($"{app.Name} cannot be launched: {message}");
                 Dispatcher.BeginInvoke(new Action(() =>
-                    MessageDialog.Show(_window, Texts.LaunchFailedTitle, Texts.Format(Texts.LaunchFailed, app.Name, message), Texts.Ok)));
+                    MessageDialog.Show(_window, Texts.LaunchFailedTitle, Texts.LaunchFailed(app.Name, message), Texts.Ok)));
             }, TaskScheduler.Default);
         }
 
         private void SetHdr(bool on)
         {
             _displays.SetHdr(on, error =>
-                MessageDialog.Show(_window, Texts.HdrFailedTitle, Texts.Format(Texts.HdrFailed, error), Texts.Ok));
+                MessageDialog.Show(_window, Texts.Hdr, Texts.HdrFailed(error), Texts.Ok));
             _window.Status.ShowHdr(_displays.Hdr, _displays.IsChanging);
         }
 
         private void ShowAbout()
         {
             DialogChoice choice = MessageDialog.Show(_window, Texts.About + " " + Texts.AppName,
-                Texts.Format(Texts.AboutText, _version), Texts.Close, Texts.OpenLicenses, Texts.GitHub);
+                Texts.AboutText(_version), Texts.Close, Texts.OpenLicenses, Texts.GitHub);
             if (choice == DialogChoice.Secondary)
                 OpenInNotepad(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "NOTICE.txt"));
             else if (choice == DialogChoice.Extra)
@@ -538,7 +584,7 @@ namespace AutoTrigger
             Log.Stop(TimeSpan.FromSeconds(2));
             try
             {
-                MessageBox.Show(Texts.Format(Texts.FatalError, Log.FilePath), Texts.AppName, MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(Texts.FatalError(Log.FilePath), Texts.AppName, MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch (Exception)
             {

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using AutoTrigger.Core.Json;
+using AutoTrigger.Core.Text;
 
 namespace AutoTrigger.Core.Model
 {
@@ -15,11 +16,23 @@ namespace AutoTrigger.Core.Model
 
         public List<DisplayEntry> Displays { get; } = new List<DisplayEntry>();
 
-        public List<string> Warnings { get; } = new List<string>();
+        public List<Note> Warnings { get; } = new List<Note>();
 
         public int ActionCount { get; set; }
 
         public bool AutoStart { get; set; }
+    }
+
+    // A file that cannot be imported; the note says why, in the window's language and in English for the log.
+    public sealed class ImportException : FormatException
+    {
+        public ImportException(Note note, Exception inner = null)
+            : base(note?.English, inner)
+        {
+            Note = note;
+        }
+
+        public Note Note { get; }
     }
 
     public static class AutoActionsImport
@@ -49,7 +62,8 @@ namespace AutoTrigger.Core.Model
             }
             catch (JsonException ex)
             {
-                throw new FormatException("this file is not valid JSON (" + ex.Message + ")", ex);
+                string detail = ex.Message;
+                throw new ImportException(new Note(() => Texts.ImportNotJson(detail)), ex);
             }
             bool looksRight = root != null
                 && root.Kind == JsonKind.Object
@@ -57,7 +71,7 @@ namespace AutoTrigger.Core.Model
                 && root["ApplicationProfiles"] != null
                 && root["ApplicationProfiles"].Kind != JsonKind.Null;
             if (!looksRight)
-                throw new FormatException("this file does not look like AutoActions settings (UserSettings.json)");
+                throw new ImportException(new Note(() => Texts.ImportNotAutoActions));
             return root;
         }
 
@@ -104,11 +118,11 @@ namespace AutoTrigger.Core.Model
                     if (id == Guid.Empty)
                     {
                         id = Guid.NewGuid();
-                        _result.Warnings.Add($"Profile '{name}' had no valid id; it was given a new one.");
+                        _result.Warnings.Add(new Note(() => Texts.ImportProfileNewId(name)));
                     }
                     if (!_profileIds.Add(id))
                     {
-                        _result.Warnings.Add($"Profile '{name}' has the same id as another profile; skipped.");
+                        _result.Warnings.Add(new Note(() => Texts.ImportProfileSameId(name)));
                         continue;
                     }
 
@@ -144,16 +158,16 @@ namespace AutoTrigger.Core.Model
                     string path = Str(app, "ApplicationFilePath") ?? string.Empty;
                     if (path.Length == 0)
                     {
-                        _result.Warnings.Add($"Application '{name}' has no program path; skipped.");
+                        _result.Warnings.Add(new Note(() => Texts.ImportAppNoPath(name)));
                         continue;
                     }
                     if (Bool(app, "IsUWP"))
-                        _result.Warnings.Add($"Application '{name}' is a Microsoft Store app; imported by its program, {path}.");
+                        _result.Warnings.Add(new Note(() => Texts.ImportAppStore(name, path)));
 
                     Guid profileId = GuidOf(assignment.Value, "ProfileGUID");
                     if (profileId != Guid.Empty && !_profileIds.Contains(profileId))
                     {
-                        _result.Warnings.Add($"Application '{name}': its profile no longer exists; imported without a profile.");
+                        _result.Warnings.Add(new Note(() => Texts.ImportAppNoProfile(name)));
                         profileId = Guid.Empty;
                     }
                     _result.Applications.Add(new AppEntry { Name = name, Path = path, ProfileId = profileId });
@@ -167,14 +181,14 @@ namespace AutoTrigger.Core.Model
                 imported.Profiles.AddRange(_result.Profiles);
                 imported.Displays.AddRange(_result.Displays);
                 foreach (ValidationIssue issue in SettingsValidator.Validate(imported))
-                    _result.Warnings.Add(issue.Message);
+                    _result.Warnings.Add(issue.Note);
             }
 
             private void NoteShortcuts()
             {
                 int shortcuts = List(_root, "ActionShortcuts").Count();
                 if (shortcuts > 0)
-                    _result.Warnings.Add($"{CountText.Of(shortcuts, "AutoActions shortcut")} not imported: in AutoTrigger, keyboard shortcuts belong to profiles.");
+                    _result.Warnings.Add(new Note(() => Texts.ImportShortcutsSkipped(shortcuts)));
             }
 
             private ProfileAction ReadAction(JsonValue action, string profileName)
@@ -191,7 +205,7 @@ namespace AutoTrigger.Core.Model
                             HoldCapSec = RunProgramAction.DefaultHoldCapSec,
                         };
                         if (run.Path.Length == 0)
-                            _result.Warnings.Add($"Profile '{profileName}': a 'Run program' action has no program.");
+                            _result.Warnings.Add(new Note(() => Texts.ImportRunNoProgram(profileName)));
                         return run;
 
                     case "CloseProgramAction":
@@ -218,7 +232,7 @@ namespace AutoTrigger.Core.Model
                     default:
                         // Kept, not dropped: the profile shows it as an unknown action, and the rest of the file is still imported.
                         string kept = "AutoActions." + (type.Length > 0 ? type : "unknown");
-                        _result.Warnings.Add($"Profile '{profileName}': action type '{type}' is not known; kept as an unknown action, which does nothing.");
+                        _result.Warnings.Add(new Note(() => Texts.ImportUnknownType(profileName, type)));
                         return new UnknownAction(kept, JsonValue.NewObject().Set("type", kept).Set("autoActions", action));
                 }
             }
@@ -255,7 +269,7 @@ namespace AutoTrigger.Core.Model
                     if (ColorDepths.Contains(depth))
                         display.ColorDepthBpc = depth;
                     else
-                        _result.Warnings.Add($"Profile '{profileName}': unknown color depth ({depth}); left out.");
+                        _result.Warnings.Add(new Note(() => Texts.ImportUnknownDepth(profileName, depth)));
                 }
                 return display;
             }
@@ -274,7 +288,7 @@ namespace AutoTrigger.Core.Model
                 }
                 else
                 {
-                    _result.Warnings.Add($"Profile '{profileName}': resolution '{text}' cannot be read; left out.");
+                    _result.Warnings.Add(new Note(() => Texts.ImportBadResolution(profileName, text)));
                 }
             }
 

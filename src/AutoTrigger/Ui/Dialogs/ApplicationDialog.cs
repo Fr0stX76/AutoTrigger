@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 using UiTextBox = Wpf.Ui.Controls.TextBox;
 
 namespace AutoTrigger.Ui

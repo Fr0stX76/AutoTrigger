@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using AutoTrigger.Core.Model;
 using AutoTrigger.Core.Platform;
+using AutoTrigger.Core.Text;
 
 namespace AutoTrigger.Ui
 {
@@ -81,10 +82,10 @@ namespace AutoTrigger.Ui
                 return Texts.ErrorShortcutAltGr;
             ShortcutEntry owner = ShortcutRules.EntryOf(_settings.Current, keys, _profile.Id, _event);
             if (owner != null)
-                return Texts.Format(Texts.ErrorShortcutTaken, ActionText.ProfileName(owner.Profile.Name), ActionText.EventName(owner.Event));
+                return Texts.ErrorShortcutTaken(ActionText.ProfileName(owner.Profile.Name), ActionText.EventName(owner.Event));
             Profile sender = ShortcutRules.SenderOf(_settings.Current, keys);
             if (sender != null)
-                return Texts.Format(Texts.ErrorShortcutIsHotkey, ActionText.ProfileName(sender.Name));
+                return Texts.ErrorShortcutIsHotkey(ActionText.ProfileName(sender.Name));
             return null;
         }
 

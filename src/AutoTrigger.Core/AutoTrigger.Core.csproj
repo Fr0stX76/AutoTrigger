@@ -10,4 +10,10 @@
     <Reference Include="System.Net.Http" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\lang\*.json">
+      <LogicalName>AutoTrigger.Lang.%(Filename).json</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
 </Project>

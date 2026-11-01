@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using AutoTrigger.Core.Logging;
+using AutoTrigger.Core.Text;
 
 namespace AutoTrigger.Ui
 {
@@ -149,7 +150,7 @@ namespace AutoTrigger.Ui
         private string ToolTip()
         {
             string state = _paused ? Texts.Paused : Texts.AppName;
-            return _update == null ? state : state + " \u00B7 " + Texts.Format(Texts.UpdateAvailable, _update);
+            return _update == null ? state : state + " \u00B7 " + Texts.UpdateAvailable(_update);
         }
 
         private void Add()

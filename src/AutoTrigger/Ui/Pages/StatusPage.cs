@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 using ToggleSwitch = Wpf.Ui.Controls.ToggleSwitch;
 
 namespace AutoTrigger.Ui
@@ -36,37 +37,34 @@ namespace AutoTrigger.Ui
             _icons = icons;
             this.Bind(BackgroundProperty, Res.Layer);
 
-            ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 360, MaxWidth = 560 });
-            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
-            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 380 });
-            Margin = new Thickness(0);
-
-            _hdr = new StateRow(Texts.Hdr);
+            _hdr = new StateRow(Texts.Hdr, Texts.StatusHdrOff);
             _hdr.Switch.Click += (s, e) => HdrChanged?.Invoke(_hdr.Switch.IsChecked == true);
-            _monitoring = new StateRow(Texts.Monitoring);
+            _monitoring = new StateRow(Texts.Monitoring, Texts.StatusMonitoringOff);
             _monitoring.Switch.Click += (s, e) => MonitoringChanged?.Invoke(_monitoring.Switch.IsChecked == true);
-            _currentName = Res.Text(Texts.None, 16);
-            _currentProfile = Res.Text(Texts.None, 14);
+            // Both switches line up whatever the state texts of the language.
+            string[] states = { Texts.StatusHdrOn, Texts.StatusHdrOff, Texts.StatusHdrUnavailable, Texts.StatusMonitoringOn, Texts.StatusMonitoringOff };
+            double stateWidth = states.Max(text => Kit.TextWidth(this, text, 14, FontWeights.Normal));
+            _hdr.TextWidth = stateWidth;
+            _monitoring.TextWidth = stateWidth;
+            _currentName = Res.Text(Texts.StatusNoApplication, 16);
+            _currentProfile = Res.Text(Texts.StatusNoProfile, 14);
             _profileLink = Kit.Link(_profileRun, () =>
             {
                 if (_profileId != Guid.Empty)
                     ProfileClicked?.Invoke(_profileId);
             });
 
-            Children.Add(BuildApplicationsColumn());
-            ScrollViewer statusColumn = BuildStatusColumn();
-            Grid.SetColumn(statusColumn, 2);
-            Children.Add(statusColumn);
+            PageColumns.Fill(this,
+                new ColumnDefinition { Width = GridLength.Auto, MinWidth = 360, MaxWidth = 560 },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 380 },
+                PageColumns.Column(Texts.Applications, BuildApplicationsCard(), false),
+                PageColumns.Column(Texts.Status, BuildStatusCards(), true));
 
             ShowCurrent(null, null);
         }
 
-        private Grid BuildApplicationsColumn()
+        private Border BuildApplicationsCard()
         {
-            var left = new Grid { Margin = Spacing.PageLeftColumn };
-            left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            left.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            left.Children.Add(Heading(Texts.Applications));
             _appList.Margin = Spacing.Right(Spacing.Section);
             var scroller = new ScrollViewer
             {
@@ -76,43 +74,33 @@ namespace AutoTrigger.Ui
             };
             Border appCard = Res.Card(scroller, Spacing.ListInset);
             appCard.VerticalAlignment = VerticalAlignment.Top;
-            Grid.SetRow(appCard, 1);
-            left.Children.Add(appCard);
-            return left;
+            return appCard;
         }
 
-        private ScrollViewer BuildStatusColumn()
+        private Grid BuildStatusCards()
         {
-            var right = new Grid { Margin = Spacing.PageRightColumn, HorizontalAlignment = HorizontalAlignment.Left };
-            for (int i = 0; i < 4; i++)
+            var right = new Grid { HorizontalAlignment = HorizontalAlignment.Left };
+            Grid.SetIsSharedSizeScope(right, true);
+            for (int i = 0; i < 3; i++)
                 right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            right.Children.Add(Heading(Texts.Status));
 
-            Border statusCard = BuildStatusCard();
-            Grid.SetRow(statusCard, 1);
-            right.Children.Add(statusCard);
+            right.Children.Add(BuildStatusCard());
 
-            TextBlock shortcutsHeading = Heading(Texts.KeyboardShortcuts);
+            TextBlock shortcutsHeading = Kit.Heading(Texts.KeyboardShortcuts);
             shortcutsHeading.Margin = new Thickness(0, Spacing.Section, 0, Spacing.Medium);
-            Grid.SetRow(shortcutsHeading, 2);
+            Grid.SetRow(shortcutsHeading, 1);
             right.Children.Add(shortcutsHeading);
             Border shortcutsCard = BuildShortcutsCard();
-            Grid.SetRow(shortcutsCard, 3);
+            Grid.SetRow(shortcutsCard, 2);
             right.Children.Add(shortcutsCard);
             SetShortcuts(Array.Empty<Profile>());
-
-            return new ScrollViewer
-            {
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                Content = right,
-            };
+            return right;
         }
 
         private Border BuildStatusCard()
         {
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Kit.LabelWidth) });
+            grid.ColumnDefinitions.Add(LabelColumn());
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -138,9 +126,13 @@ namespace AutoTrigger.Ui
             return statusCard;
         }
 
+        // Both cards share the label width, which grows with the longest label of the language.
+        private static ColumnDefinition LabelColumn() =>
+            new ColumnDefinition { Width = GridLength.Auto, MinWidth = Kit.LabelWidth, SharedSizeGroup = "StatusLabels" };
+
         private Border BuildShortcutsCard()
         {
-            _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Kit.LabelWidth) });
+            _shortcuts.ColumnDefinitions.Add(LabelColumn());
             _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             _shortcuts.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
@@ -198,7 +190,7 @@ namespace AutoTrigger.Ui
             if (entries.Count == 0)
             {
                 _shortcuts.RowDefinitions.Add(new RowDefinition { Height = new GridLength(32) });
-                TextBlock none = Res.Text(Texts.None);
+                TextBlock none = Res.Text(Texts.StatusNoShortcuts);
                 Grid.SetColumnSpan(none, 5);
                 _shortcuts.Children.Add(none);
                 return;
@@ -225,7 +217,7 @@ namespace AutoTrigger.Ui
         public void ShowEngine(EngineSnapshot snapshot)
         {
             bool on = snapshot.Monitoring && !snapshot.Paused;
-            _monitoring.Show(on, on ? Texts.Enabled : Texts.Disabled, true);
+            _monitoring.Show(on, on ? Texts.StatusMonitoringOn : Texts.StatusMonitoringOff, true);
 
             _apps.TryGetValue(snapshot.CurrentAppId, out AppEntry app);
             if (snapshot.CurrentAppId != _shownApp)
@@ -243,9 +235,9 @@ namespace AutoTrigger.Ui
         public void ShowHdr(HdrState hdr, bool changing)
         {
             if (!hdr.Available)
-                _hdr.Show(false, Texts.NotAvailable, false);
+                _hdr.Show(false, Texts.StatusHdrUnavailable, false);
             else
-                _hdr.Show(hdr.On, hdr.On ? Texts.Enabled : Texts.Disabled, !changing);
+                _hdr.Show(hdr.On, hdr.On ? Texts.StatusHdrOn : Texts.StatusHdrOff, !changing);
         }
 
         private void ShowCurrent(AppEntry app, string name)
@@ -254,7 +246,7 @@ namespace AutoTrigger.Ui
             {
                 _currentIcon.Visibility = Visibility.Collapsed;
                 _currentName.Margin = new Thickness(0);
-                _currentName.Text = Texts.None;
+                _currentName.Text = Texts.StatusNoApplication;
                 _currentName.FontSize = 14;
                 _currentName.SetResourceReference(TextBlock.ForegroundProperty, Res.TextPrimary);
                 return;
@@ -310,13 +302,6 @@ namespace AutoTrigger.Ui
             return row;
         }
 
-        private static TextBlock Heading(string text)
-        {
-            var heading = Res.Text(text, 20, FontWeights.SemiBold);
-            heading.Margin = new Thickness(0, 0, 0, Spacing.Medium);
-            return heading;
-        }
-
         private static void AddRow(Grid grid, int row, string label, UIElement value)
         {
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -338,10 +323,10 @@ namespace AutoTrigger.Ui
             private readonly Ellipse _dot;
             private readonly TextBlock _text;
 
-            public StateRow(string name)
+            public StateRow(string name, string offText)
             {
                 _dot = new Ellipse { Width = 10, Height = 10, StrokeThickness = 1.5, VerticalAlignment = VerticalAlignment.Center };
-                _text = Res.Text(Texts.Disabled);
+                _text = Res.Text(offText);
                 _text.MinWidth = 72;
                 _text.Margin = new Thickness(10, 0, 10, 0);
                 Switch = new ToggleSwitch { VerticalAlignment = VerticalAlignment.Center };
@@ -355,6 +340,11 @@ namespace AutoTrigger.Ui
             public StackPanel Panel { get; }
 
             public ToggleSwitch Switch { get; }
+
+            public double TextWidth
+            {
+                set => _text.MinWidth = Math.Max(72, value);
+            }
 
             public void Show(bool on, string text, bool enabled)
             {

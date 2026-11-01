@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 using UiButton = Wpf.Ui.Controls.Button;
 using UiTextBox = Wpf.Ui.Controls.TextBox;
 
@@ -18,7 +19,9 @@ namespace AutoTrigger.Ui
     {
         private const double NameColumn = 160;
         private const double ProfileColumn = 205;
-        private const double FixedColumns = 44 + 16 + 24 + 24 + 150;
+        private const double MonitoringColumn = 150;
+        private const double FixedColumns = 44 + 16 + 24 + 24;
+        private const double SwitchAndGap = 40 + 10;
         private const double TableChrome = 16 + 16 + 2 + 16;
         private const double ComboChrome = 56;
         private const double TextSize = 14;
@@ -33,6 +36,7 @@ namespace AutoTrigger.Ui
         private readonly Grid _headings;
         private double _nameNeed = NameColumn;
         private double _profileNeed = ProfileColumn;
+        private double _monitoringNeed = MonitoringColumn;
         private int _measuredVersion = -1;
         private readonly Dictionary<Guid, ListRow> _rowById = new Dictionary<Guid, ListRow>();
         private readonly TextBlock _count;
@@ -182,7 +186,7 @@ namespace AutoTrigger.Ui
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ProfileColumn) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(MonitoringColumn) });
             return grid;
         }
 
@@ -192,6 +196,8 @@ namespace AutoTrigger.Ui
             _nameNeed = Math.Max(NameColumn, _nameNeed);
             double profiles = Kit.ProfileChoices(Settings).Select(p => TextWidth(p.Value)).DefaultIfEmpty(0).Max();
             _profileNeed = Math.Max(ProfileColumn, profiles + ComboChrome);
+            double state = Math.Max(TextWidth(Texts.ApplicationMonitoringOn), TextWidth(Texts.ApplicationMonitoringOff));
+            _monitoringNeed = Math.Max(MonitoringColumn, SwitchAndGap + state);
         }
 
         private double TextWidth(string text)
@@ -204,12 +210,13 @@ namespace AutoTrigger.Ui
 
         private void ApplyColumns()
         {
-            double available = _root.ActualWidth - TableChrome - FixedColumns;
+            double available = _root.ActualWidth - TableChrome - FixedColumns - _monitoringNeed;
             (double name, double profile) = FitColumns(_nameNeed, _profileNeed, available);
             foreach (Grid grid in _rowGrids.Prepend(_headings))
             {
                 grid.ColumnDefinitions[2].Width = new GridLength(name);
                 grid.ColumnDefinitions[4].Width = new GridLength(profile);
+                grid.ColumnDefinitions[6].Width = new GridLength(_monitoringNeed);
             }
         }
 
@@ -315,13 +322,13 @@ namespace AutoTrigger.Ui
 
         private StackPanel MonitoringSwitch(AppEntry app)
         {
-            TextBlock state = Res.Text(app.Enabled ? Texts.Enabled : Texts.Disabled);
+            TextBlock state = Res.Text(app.Enabled ? Texts.ApplicationMonitoringOn : Texts.ApplicationMonitoringOff);
             state.Margin = new Thickness(10, 0, 0, 0);
             var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             panel.Children.Add(Kit.Switch(app.Enabled, on =>
             {
                 app.Enabled = on;
-                state.Text = on ? Texts.Enabled : Texts.Disabled;
+                state.Text = on ? Texts.ApplicationMonitoringOn : Texts.ApplicationMonitoringOff;
                 AutoTrigger.Core.Logging.Log.Info($"{DisplayName(app)}: monitoring {(on ? "enabled" : "disabled")}");
                 _settings.Commit();
                 _shownVersion = _settings.Version;

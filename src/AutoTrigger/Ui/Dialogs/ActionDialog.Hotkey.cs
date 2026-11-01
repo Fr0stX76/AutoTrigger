@@ -1,5 +1,6 @@
 ﻿using System.Windows.Controls;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 
 namespace AutoTrigger.Ui
 {
@@ -27,7 +28,7 @@ namespace AutoTrigger.Ui
             Profile owner = ShortcutRules.OwnerOf(_settings, keys);
             if (owner != null)
             {
-                ShowError(_error, Texts.Format(Texts.ErrorHotkeyIsShortcut, ActionText.ProfileName(owner.Name)));
+                ShowError(_error, Texts.ErrorHotkeyIsShortcut(ActionText.ProfileName(owner.Name)));
                 return false;
             }
             Result = new PressHotkeyAction { Name = _name.Text.Trim(), Keys = keys, DelayMs = delay };

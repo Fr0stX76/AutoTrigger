@@ -36,6 +36,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 - Keyboard shortcuts and command line to run the Started or Closed actions of a profile on demand.
 - Windows Store apps, focus included.
 - Light and dark themes, following Windows by default.
+- 37 languages, following the Windows display language by default, see [Languages](#languages).
 - Import from AutoActions.
 - Update check: a link at the bottom of the window and a dot on the tray icon when a new version is out.
 - About 0.06 % of one CPU core while idle. No administrator rights. The only network access is the update check, which can be turned off.
@@ -50,7 +51,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 
 <img src="images/displays.png" alt="Displays page: each monitor with its resolution, refresh rate, color format and HDR state">
 
-<img src="images/settings.png" width="430" alt="Settings page: start with Windows, theme, log level, update check and import from AutoActions">
+<img src="images/settings.png" alt="Settings page: General with start with Windows, tray, theme, language and update check; Advanced with focus time, start detection, log and import from AutoActions">
 
 ## How actions run
 
@@ -62,12 +63,18 @@ An event of an application, a keyboard shortcut or a command picks a profile; th
 
 When each action starts, with the delay set on each one:
 
-<img src="images/actions-timeline.png" width="800" alt="Timeline: HDR on takes 2 s; a Run program with a 3 s delay starts at 3 s and holds the next actions until it exits at 8 s; a Hotkey with no delay starts at 8 s; a Run program with a 2 s delay starts at 10 s">
+<img src="images/actions-timeline.png" width="800" alt="Timeline: HDR on takes 2 s; a Run program with a 3 s delay starts at 5 s and holds the next actions until it exits at 10 s; a Hotkey with no delay starts at 10 s; a Run program with a 2 s delay starts at 12 s">
 
-- Each action waits for the previous one to finish, and its delay counts from the start of the previous action, not from its end: above, the 3 s delay of Run program begins with HDR on, so the program starts 1 s after the 2 s display change. With a delay of 0, an action starts as soon as the previous one has finished.
-- **Hold next actions until this program finishes** makes the next actions wait for that program to exit, 30 s at most by default (**Stop holding after**). A delay that has already passed when the program exits adds nothing: the next action starts at once.
+- Each action waits for the previous one to finish, then for its own delay: above, Run program starts 3 s after the 2 s display change has ended. With a delay of 0, an action starts as soon as the previous one has finished.
+- **Hold next actions until this program finishes** makes the next actions wait for that program to exit, 30 s at most by default (**Stop holding after**). The delay of the next action then counts from the end of the hold.
 - **Reference profile** inserts the actions of another profile for the same event, with their delays, as if they were written in its place. References can be nested 8 levels deep.
 - When a profile starts, the profiles still running for another application or a keyboard shortcut finish their remaining actions at once, without their delays and holds, then the new profile runs. This waits 10 s at most.
+
+## Languages
+
+AutoTrigger uses the Windows display language, or the language chosen in **Settings**. It is available in English, French and 35 other languages: Basque, Bulgarian, Catalan, Chinese (Simplified), Chinese (Traditional), Croatian, Czech, Danish, Dutch, Estonian, Finnish, Galician, German, Greek, Hungarian, Indonesian, Italian, Japanese, Korean, Latvian, Lithuanian, Norwegian, Polish, Portuguese (Brazil), Romanian, Russian, Serbian (Latin), Slovak, Slovenian, Spanish, Swedish, Thai, Turkish, Ukrainian and Vietnamese.
+
+English is the reference and the author reviewed French. The other languages were translated with AI, using the words of Windows in each language, and have not been reviewed by native speakers yet. Corrections are welcome and need no code: see [Translating AutoTrigger](docs/TRANSLATING.md).
 
 ## Requirements
 
@@ -135,6 +142,8 @@ To uninstall, uncheck Start with Windows, choose Exit, then delete the AutoTrigg
 
 **Does it need administrator rights?** No.
 
+**How do I change the language?** In **Settings**, choose **Language**, then **Restart now**.
+
 **Can I keep my AutoActions setup?** Yes, see [Moving from AutoActions](#moving-from-autoactions).
 
 ## Build
@@ -161,7 +170,7 @@ The program is written to `out\Release`. [WPF UI](https://github.com/lepoco/wpfu
 
 ## AI disclosure
 
-This app was built with the help of AI (Claude, by Anthropic) under the direction of the author.
+This app was built with the help of AI (Claude, by Anthropic) under the direction of the author. The translations other than English and French were made with AI, see [Languages](#languages).
 
 ## License
 

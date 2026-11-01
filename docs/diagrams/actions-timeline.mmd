@@ -5,7 +5,7 @@ gantt
   section Display, delay 0
     HDR on, 2 s : a1, 0, 2s
   section Run program, delay 3 s
-    delay 3 s : active, d1, 0, 3s
+    delay 3 s : active, d1, after a1, 3s
     runs, next actions held : a2, after d1, 5s
   section Hotkey, delay 0
     starts when the program exits : milestone, m1, after a2, 0s

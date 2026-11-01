@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
+using AutoTrigger.Core.Text;
 
 namespace AutoTrigger.Ui
 {

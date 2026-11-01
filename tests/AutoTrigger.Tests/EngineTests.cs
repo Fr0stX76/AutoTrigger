@@ -306,13 +306,16 @@ namespace AutoTrigger.Tests
         public readonly TriggerEngine Engine;
         public readonly AppSettings Settings;
 
-        public Rig(AppSettings settings)
+        public Rig(AppSettings settings, Func<ProfileAction, Task<ActionOutcome>> intercept = null)
         {
             Settings = settings;
             Ps = new FakeProcessSystem(Sched);
             Exec = new ActionExecutor(Ps);
             Engine = new TriggerEngine(settings, Ps, Sched, a =>
             {
+                Task<ActionOutcome> intercepted = intercept?.Invoke(a);
+                if (intercepted != null)
+                    return intercepted;
                 Interlocked.Increment(ref Sched.Outstanding);
                 return Exec.ExecuteAsync(a).ContinueWith(t =>
                 {
@@ -398,6 +401,7 @@ namespace AutoTrigger.Tests
                 ("Baseline ignores running apps", BaselineIgnored),
                 ("Cumulative delays", CumulativeDelays),
                 ("Waits for the previous action", WaitsForPrevious),
+                ("Delay counts from the end of a slow action", DelayAfterSlowAction),
                 ("Closed cancels pending started", ClosedCancelsStarted),
                 ("Hold until program ends", HoldUntilExit),
                 ("Hold cap", HoldCap),
@@ -455,6 +459,7 @@ namespace AutoTrigger.Tests
                 ("JSON round trip", JsonRoundTrip),
                 ("Settings written by 1.2.0 are kept", SettingsFrom120),
                 ("Settings written by 1.3.0 are kept", SettingsFrom130),
+                ("Settings written by 1.4.0 are kept", SettingsFrom140),
                 ("Run program: hidden console", HiddenConsole),
                 ("Action names: Run program, Close program, Hotkey", ActionNames),
                 ("Reset to defaults", ResetDefaults),
@@ -473,6 +478,10 @@ namespace AutoTrigger.Tests
                 ("Engine loop: one thread, timers and posts", LoopTiming),
                 ("Display layout: resized desktops stay together", CcdLayout),
                 ("Display layout: signal mode released", CcdReleaseTarget),
+                ("Language files: keys, placeholders and texts", LanguageFiles),
+                ("Language: fallback and test file", LanguageFallback),
+                ("Language: Windows language and setting", LanguageChoice),
+                ("Pseudo language", PseudoLanguage),
             };
             var sb = new StringBuilder();
             foreach (var (name, test) in tests)
@@ -565,13 +574,44 @@ namespace AutoTrigger.Tests
             rig.Sched.Advance(2000);
             rig.Ps.Exit(rig.Ps.Starts.First(x => x.Path.EndsWith("w1.exe", StringComparison.OrdinalIgnoreCase)).Process);
             rig.Sched.Advance(4000);
-            Seq(new[] { t0 + 5000 }, rig.StartTimes("n1.exe"), "w1 ended at 2 s: n1 keeps its 5 s");
-            Seq(new[] { t0 + 5000 }, rig.StartTimes("w2.exe"), "w2 right after n1");
+            Eq(0, rig.StartTimes("n1.exe").Count, "n1 not yet 5 s after w1 ended");
             rig.Sched.Advance(2000);
-            Eq(0, rig.StartTimes("n2.exe").Count, "n2 waits for w2 past its 1 s delay");
+            Seq(new[] { t0 + 7000 }, rig.StartTimes("n1.exe"), "w1 ended at 2 s: n1 5 s later");
+            Seq(new[] { t0 + 7000 }, rig.StartTimes("w2.exe"), "w2 right after n1");
             rig.Ps.Exit(rig.Ps.Starts.First(x => x.Path.EndsWith("w2.exe", StringComparison.OrdinalIgnoreCase)).Process);
+            rig.Sched.Advance(500);
+            Eq(0, rig.StartTimes("n2.exe").Count, "n2 keeps its 1 s after w2 ended");
+            rig.Sched.Advance(1000);
+            Seq(new[] { t0 + 9000 }, rig.StartTimes("n2.exe"), "w2 ended at 8 s: n2 1 s later");
+            rig.Stop();
+        }
+
+        private static void DelayAfterSlowAction()
+        {
+            var s = NewSettings();
+            var p = AddProfile(s, "Game");
+            p.OnClose.Add(Run("/tools/slow.exe", 0));
+            p.OnClose.Add(Run("/tools/next.exe", 1000));
+            AddApp(s, "Days Gone", GameExe, p);
+            Rig rig = null;
+            rig = new Rig(s, a =>
+            {
+                if (!(a is RunProgramAction run) || !run.Path.EndsWith("slow.exe", StringComparison.Ordinal))
+                    return null;
+                var done = new TaskCompletionSource<ActionOutcome>();
+                rig.Sched.Schedule(1500, () => done.SetResult(ActionOutcome.Success("done")));
+                return done.Task;
+            });
+            rig.Engine.Start();
             rig.Sched.Advance(10);
-            Seq(new[] { t0 + 8000 }, rig.StartTimes("n2.exe"), "n2 when w2 ends");
+            FakeProc g = rig.Ps.Launch(GameExe);
+            rig.Sched.Advance(1000);
+            rig.Ps.Exit(g);
+            long t0 = rig.T;
+            rig.Sched.Advance(2000);
+            Eq(0, rig.StartTimes("next.exe").Count, "next keeps its full delay after the slow action");
+            rig.Sched.Advance(1000);
+            Seq(new[] { t0 + 2500 }, rig.StartTimes("next.exe"), "slow action ended at 1.5 s: next 1 s later");
             rig.Stop();
         }
 
@@ -616,9 +656,11 @@ namespace AutoTrigger.Tests
             FakeProc w = rig.Ps.Starts.First(x => x.Path.EndsWith("wait.exe", StringComparison.OrdinalIgnoreCase)).Process;
             rig.Ps.Exit(w);
             rig.Sched.Advance(10);
-            Seq(new[] { t0 + 3000 }, rig.StartTimes("next.exe"), "next starts when the program ends");
+            Eq(0, rig.StartTimes("next.exe").Count, "next keeps its delay after the program ends");
+            rig.Sched.Advance(100);
+            Seq(new[] { t0 + 3100 }, rig.StartTimes("next.exe"), "next 100 ms after the program ends");
             rig.Sched.Advance(10000);
-            Seq(new[] { t0 + 3000 + 8000 }, rig.StartTimes("late.exe"), "late 8 s after next");
+            Seq(new[] { t0 + 3100 + 8000 }, rig.StartTimes("late.exe"), "late 8 s after next");
             rig.Stop();
         }
 
@@ -639,7 +681,7 @@ namespace AutoTrigger.Tests
             rig.Sched.Advance(29000);
             Eq(0, rig.StartTimes("next.exe").Count, "still held at 29 s");
             rig.Sched.Advance(2000);
-            Seq(new[] { t0 + 30000 }, rig.StartTimes("next.exe"), "released at the 30 s cap");
+            Seq(new[] { t0 + 30100 }, rig.StartTimes("next.exe"), "released at the 30 s cap, then its own delay");
             rig.Stop();
         }
 
@@ -661,7 +703,7 @@ namespace AutoTrigger.Tests
             List<ValidationIssue> issues = SettingsValidator.Validate(s);
             Check(issues.Any(i => i.Kind == IssueKind.Loop), "loop reported by the validator");
             Check(issues.Any(i => i.Kind == IssueKind.MissingProfile), "missing profile reported");
-            Eq("Profile 'B' (closed): referenced profile does not exist.", issues.Single(i => i.Kind == IssueKind.MissingProfile).Message,
+            Eq("Profile 'B' (Closed): referenced profile does not exist.", issues.Single(i => i.Kind == IssueKind.MissingProfile).Note.English,
                 "the event is named as in the window");
 
             var rig = new Rig(s);
@@ -1580,7 +1622,7 @@ namespace AutoTrigger.Tests
                 Eq(AutoTrigger.Core.Storage.LoadSource.Reset, loaded.Source, "unreadable file: empty settings");
                 Check(!File.Exists(store.FilePath), "bad file set aside");
                 Check(Directory.GetFiles(dir, "settings.invalid-*.json").Length == 1, "bad file kept aside");
-                Check(loaded.Message != null && loaded.Message.Contains("set aside"), "message names the set-aside file");
+                Check(loaded.Message != null && loaded.Message.English.Contains("set aside"), "message names the set-aside file");
                 Check(File.Exists(oldBackup), "old settings.bak left alone when settings.json is unreadable");
 
                 AddProfile(loaded.Settings, "First");
@@ -1714,19 +1756,19 @@ namespace AutoTrigger.Tests
             Check(run.Path == @"C:\Tools\a.exe" && run.Arguments == "-x" && run.HoldNext, "run program");
             Eq(6, r.ActionCount, "action count");
             Check(r.AutoStart, "AutoActions start with Windows noticed");
-            Check(r.Warnings.Any(w => w.Contains("color depth")) && r.Warnings.Any(w => w.Contains("no longer exists")), "warnings: " + string.Join(" | ", r.Warnings));
+            Check(r.Warnings.Any(w => w.English.Contains("color depth")) && r.Warnings.Any(w => w.English.Contains("no longer exists")), "warnings: " + string.Join(" | ", r.Warnings));
 
             Check(Throws(() => AutoActionsImport.Read("{ \"name\": 1 }")), "not AutoActions settings: refused");
             Check(Throws(() => AutoActionsImport.Read("{ not json")), "not JSON: refused");
             Check(AutoActionsImport.Read(json.Replace("\"ActionShortcuts\": []", "\"ActionShortcuts\": [{}]")).Warnings
-                .Any(w => w.StartsWith("1 AutoActions shortcut not imported", StringComparison.Ordinal)), "one shortcut: singular");
+                .Any(w => w.English.StartsWith("AutoActions shortcuts not imported: 1.", StringComparison.Ordinal)), "one shortcut: counted");
             Check(AutoActionsImport.Read(json.Replace("\"ActionShortcuts\": []", "\"ActionShortcuts\": [{}, {}]")).Warnings
-                .Any(w => w.StartsWith("2 AutoActions shortcuts not imported", StringComparison.Ordinal)), "two shortcuts: plural");
+                .Any(w => w.English.StartsWith("AutoActions shortcuts not imported: 2.", StringComparison.Ordinal)), "two shortcuts: counted");
             ImportResult teleport = AutoActionsImport.Read(json.Replace("CloseProgramAction", "TeleportAction"));
             Profile teleportZeta = teleport.Profiles.First(p => p.Name == zeta.Name);
             Eq("AutoActions.TeleportAction", (teleportZeta.OnClose[0] as UnknownAction)?.TypeName, "unknown action type: kept as an unknown action");
             Eq(6, teleport.ActionCount, "unknown action type: the rest is imported");
-            Check(teleport.Warnings.Any(w => w.Contains("TeleportAction")), "unknown action type: noted");
+            Check(teleport.Warnings.Any(w => w.English.Contains("TeleportAction")), "unknown action type: noted");
             var withUnknown = new AppSettings();
             withUnknown.Profiles.AddRange(teleport.Profiles);
             AppSettings saved = SettingsJson.Read(SettingsJson.Write(withUnknown), new List<string>());

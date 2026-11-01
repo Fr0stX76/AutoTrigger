@@ -23,7 +23,7 @@ namespace AutoTrigger.Tests
                 using (new FileStream(store.FilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
                     loaded = store.Load();
                 Eq(LoadSource.Locked, loaded.Source, "file in use: reported as locked");
-                Check(!string.IsNullOrEmpty(loaded.Message), "file in use: the user is told");
+                Check(loaded.Message != null && loaded.Message.English.Length > 0, "file in use: the user is told");
                 Check(store.IsReadOnly, "file in use: nothing will be saved");
                 store.SaveSoon(new AppSettings());
                 store.FlushPending();

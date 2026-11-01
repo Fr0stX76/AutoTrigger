@@ -11,6 +11,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 using UiButton = Wpf.Ui.Controls.Button;
 using UiTextBox = Wpf.Ui.Controls.TextBox;
 
@@ -18,8 +19,11 @@ namespace AutoTrigger.Ui
 {
     internal sealed partial class ProfilesPage : Grid, IPage
     {
-        private const double CardWidth = 200;
+        private const double CardWidth = 240;
         private const double CardHeight = 108;
+        private const double ListMinWidth = 400;
+        private const double ListMaxWidth = 440;
+        private const double EditorMinWidth = 480;
         private const string DragFormat = "AutoTrigger.ProfileAction";
 
         private readonly SettingsController _settings;
@@ -32,6 +36,12 @@ namespace AutoTrigger.Ui
         private readonly StackPanel _list = new StackPanel { Margin = Spacing.Right(Spacing.Medium) };
         private readonly Dictionary<Guid, ListRow> _rows = new Dictionary<Guid, ListRow>();
         private readonly Border _editorHost = new Border();
+        private readonly ColumnDefinition _listColumn = new ColumnDefinition
+        {
+            Width = new GridLength(1, GridUnitType.Star),
+            MinWidth = ListMinWidth,
+            MaxWidth = ListMaxWidth,
+        };
         private readonly UiTextBox _search;
         private readonly UiButton _duplicate;
         private readonly UiButton _delete;
@@ -39,6 +49,7 @@ namespace AutoTrigger.Ui
         private readonly UiButton _down;
         private Guid _selectedId;
         private UiTextBox _nameBox;
+        private double _buttonRowWidth;
 
         public ProfilesPage(SettingsController settings, IProcessSystem processes, DisplayService displays,
             IAudioHardware audio, IPowerPlans powerPlans, HotkeyService hotkeys, Func<Window> owner)
@@ -52,10 +63,6 @@ namespace AutoTrigger.Ui
             _owner = owner;
             this.Bind(BackgroundProperty, Res.Layer);
 
-            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 400, MaxWidth = 440 });
-            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
-            ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star), MinWidth = 480 });
-
             _search = Kit.TextField(string.Empty, text => OnSearchChanged(), Texts.SearchProfiles);
             _duplicate = Kit.Button(Texts.Duplicate, Kit.IconCopy);
             _duplicate.Click += (s, e) => DuplicateProfile();
@@ -66,24 +73,33 @@ namespace AutoTrigger.Ui
             _down = Kit.IconButton(Kit.IconDown, Texts.MoveDown);
             _down.Click += (s, e) => MoveProfile(1);
 
-            Children.Add(BuildListColumn());
-            Grid editorColumn = BuildEditorColumn();
-            Grid.SetColumn(editorColumn, 2);
-            Children.Add(editorColumn);
+            PageColumns.Fill(this, _listColumn,
+                new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star), MinWidth = EditorMinWidth },
+                PageColumns.Column(Texts.TabProfiles, BuildList(), false),
+                PageColumns.Column(Texts.CurrentProfile, _editorHost, true));
+            SizeChanged += (s, e) => FitListColumn();
         }
 
-        private Grid BuildListColumn()
+        // Wide enough for the buttons under the list on one line in the active language, page margin included,
+        // as long as the editor keeps its own minimum width; in a narrower window the buttons wrap.
+        private void FitListColumn()
         {
-            var left = new Grid { Margin = Spacing.PageLeftColumn };
-            left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            if (_buttonRowWidth <= 0)
+                return;
+            double wanted = _buttonRowWidth + Spacing.PageLeftColumn.Left;
+            double room = ActualWidth - Spacing.Section - EditorMinWidth;
+            _listColumn.MinWidth = Math.Max(ListMinWidth, Math.Min(wanted, room));
+            _listColumn.MaxWidth = Math.Max(ListMaxWidth, wanted);
+        }
+
+        private Grid BuildList()
+        {
+            var left = new Grid();
             left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             left.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            left.Children.Add(Kit.Heading(Texts.TabProfiles));
 
-            Grid searchRow = BuildSearchRow();
-            Grid.SetRow(searchRow, 1);
-            left.Children.Add(searchRow);
+            left.Children.Add(BuildSearchRow());
 
             var scroller = new ScrollViewer
             {
@@ -94,18 +110,18 @@ namespace AutoTrigger.Ui
             Border listCard = Res.Card(scroller, Spacing.ListInset);
             listCard.Margin = Spacing.Top(Spacing.Medium);
             listCard.VerticalAlignment = VerticalAlignment.Top;
-            Grid.SetRow(listCard, 2);
+            Grid.SetRow(listCard, 1);
             left.Children.Add(listCard);
 
-            StackPanel buttons = BuildButtonRow();
-            Grid.SetRow(buttons, 3);
+            WrapPanel buttons = BuildButtonRow();
+            Grid.SetRow(buttons, 2);
             left.Children.Add(buttons);
             return left;
         }
 
         private Grid BuildSearchRow()
         {
-            var searchRow = new Grid { Margin = Spacing.Top(Spacing.Medium) };
+            var searchRow = new Grid();
             searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             searchRow.Children.Add(_search);
@@ -116,36 +132,23 @@ namespace AutoTrigger.Ui
             return searchRow;
         }
 
-        private StackPanel BuildButtonRow()
+        private WrapPanel BuildButtonRow()
         {
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = Spacing.Top(Spacing.Medium) };
+            var buttons = new WrapPanel { Margin = Spacing.Top(Spacing.Medium - Spacing.Small) };
             var add = Kit.Button(Texts.Add, Kit.IconPlus);
             add.Click += (s, e) => NewProfile();
-            buttons.Children.Add(add);
-            foreach (UiButton button in new[] { _duplicate, _delete, _up, _down })
+            foreach (UiButton button in new[] { add, _duplicate, _delete, _up, _down })
             {
-                button.Margin = Spacing.Left(Spacing.Small);
+                button.Margin = new Thickness(0, Spacing.Small, button == _down ? 0 : Spacing.Small, 0);
                 buttons.Children.Add(button);
             }
-            return buttons;
-        }
-
-        private Grid BuildEditorColumn()
-        {
-            var right = new Grid { Margin = Spacing.PageRightColumn };
-            right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            right.Children.Add(Kit.Heading(Texts.CurrentProfile));
-            var editorScroll = new ScrollViewer
+            // Measured once shown, in the font and language of the window; one pixel more against layout rounding.
+            buttons.Loaded += (s, e) =>
             {
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                Content = _editorHost,
-                Margin = Spacing.Top(Spacing.Medium),
+                _buttonRowWidth = Math.Ceiling(buttons.Children.Cast<FrameworkElement>().Sum(b => b.DesiredSize.Width)) + 1;
+                FitListColumn();
             };
-            Grid.SetRow(editorScroll, 1);
-            right.Children.Add(editorScroll);
-            return right;
+            return buttons;
         }
 
         private AppSettings Settings => _settings.Current;

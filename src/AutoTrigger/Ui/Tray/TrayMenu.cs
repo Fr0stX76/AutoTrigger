@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using AutoTrigger.Core.Logging;
+using AutoTrigger.Core.Text;
 
 namespace AutoTrigger.Ui
 {

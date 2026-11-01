@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 using Microsoft.Win32;
 using ToggleSwitch = Wpf.Ui.Controls.ToggleSwitch;
 using UiTextBox = Wpf.Ui.Controls.TextBox;
@@ -109,7 +110,7 @@ namespace AutoTrigger.Ui
         private static string Context(Profile profile, EventKind kind, ProfileAction original, int position)
         {
             string text = ActionText.ProfileName(profile.Name) + " · " + ActionText.EventName(kind);
-            return original == null ? text : text + " · " + Texts.Format(Texts.ActionNumber, position);
+            return original == null ? text : text + " · " + Texts.ActionNumber(position);
         }
 
         private StackPanel _runPanel;
@@ -148,7 +149,7 @@ namespace AutoTrigger.Ui
             _runPanel = new StackPanel();
             _runPath = Kit.TextField(run.Path, null, Texts.ChooseProgramFile);
             _runPanel.Children.Add(Kit.Field(Texts.Program, WithRunning(_runPath, false)));
-            _runArguments = Kit.TextField(run.Arguments, null, Texts.None);
+            _runArguments = Kit.TextField(run.Arguments, null, Texts.ArgumentsNone);
             _runPanel.Children.Add(Kit.Field(Texts.Arguments, _runArguments));
             _runPanel.Children.Add(Kit.Separator(Spacing.Top(Spacing.Field)));
 
@@ -345,12 +346,22 @@ namespace AutoTrigger.Ui
             return grid;
         }
 
+        // The file types stay as Windows expects them; only their names come from the language.
+        private static string ExeFilter => FilterName(Texts.FileTypePrograms) + " (*.exe)|*.exe";
+
+        private static string ProgramsFilter =>
+            FilterName(Texts.FileTypePrograms) + " (*.exe;*.bat;*.cmd;*.lnk)|*.exe;*.bat;*.cmd;*.lnk|"
+            + FilterName(Texts.FileTypeAllFiles) + " (*.*)|*.*";
+
+        // A '|' in a translated name would split the filter and make the file dialog refuse it.
+        private static string FilterName(string name) => name.Replace("|", string.Empty);
+
         internal static string BrowseForFile(string current, bool exeOnly)
         {
             var dialog = new OpenFileDialog
             {
                 CheckFileExists = true,
-                Filter = exeOnly ? Texts.FilterExe : Texts.FilterPrograms,
+                Filter = exeOnly ? ExeFilter : ProgramsFilter,
             };
             try
             {

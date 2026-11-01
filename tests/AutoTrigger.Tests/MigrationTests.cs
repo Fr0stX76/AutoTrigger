@@ -80,6 +80,20 @@ namespace AutoTrigger.Tests
             SavedWithoutLoss(SettingsFixtures.Version130, s, "1.3.0 file");
         }
 
+        private static void SettingsFrom140()
+        {
+            var warnings = new List<string>();
+            AppSettings s = SettingsJson.Read(JsonValue.Parse(SettingsFixtures.Version140), warnings);
+            Eq(0, warnings.Count, "1.4.0 file: read without warnings: " + string.Join(" | ", warnings));
+            Eq(string.Empty, s.Language, "1.4.0 file: Windows language");
+            Profile vrr = s.Profiles.First(p => p.Name == "VRR");
+            RunProgramAction run = vrr.OnStart.OfType<RunProgramAction>().Single();
+            Check(run.HideConsole && run.Name == "Mixer", "1.4.0 file: hidden console and name kept");
+            Eq("Close mixer", vrr.OnClose.OfType<CloseProgramAction>().Single().Name, "1.4.0 file: Close program name kept");
+            Eq("Overlay on", vrr.OnStart.OfType<PressHotkeyAction>().Single().Name, "1.4.0 file: Hotkey name kept");
+            SavedWithoutLoss(SettingsFixtures.Version140, s, "1.4.0 file");
+        }
+
         private static void HiddenConsole()
         {
             Check(ConsoleProgram.IsConsoleImage(PeHeader(3), 512), "console subsystem: console");

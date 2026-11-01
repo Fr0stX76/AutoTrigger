@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using AutoTrigger.Core.Engine;
 using AutoTrigger.Core.Logging;
 using AutoTrigger.Core.Model;
+using AutoTrigger.Core.Text;
 using UiButton = Wpf.Ui.Controls.Button;
 using UiControlAppearance = Wpf.Ui.Controls.ControlAppearance;
 
@@ -68,7 +69,8 @@ namespace AutoTrigger.Ui
 
             string stored = playback ? _playbackStored : _recordingStored;
             string storedName = playback ? _playbackName : _recordingName;
-            var choices = new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>(string.Empty, Texts.Unchanged) };
+            string unchanged = playback ? Texts.AudioOutputUnchanged : Texts.AudioInputUnchanged;
+            var choices = new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>(string.Empty, unchanged) };
             string selected = string.Empty;
             foreach (AudioDevice device in devices)
             {
@@ -131,13 +133,13 @@ namespace AutoTrigger.Ui
                 Log.Warning("Power plans cannot be listed", ex);
             }
 
-            var choices = new List<KeyValuePair<Guid, string>> { new KeyValuePair<Guid, string>(Guid.Empty, Texts.Unchanged) };
+            var choices = new List<KeyValuePair<Guid, string>> { new KeyValuePair<Guid, string>(Guid.Empty, Texts.PowerPlanUnchanged) };
             choices.AddRange(_plans.Select(p =>
                 new KeyValuePair<Guid, string>(p.Id, p.Name + (p.Id == active ? " · " + Texts.ActiveShort : string.Empty))));
             if (_planId != Guid.Empty && _plans.All(p => p.Id != _planId))
             {
                 string name = string.IsNullOrWhiteSpace(_planName) ? _planId.ToString("D") : _planName;
-                choices.Add(new KeyValuePair<Guid, string>(_planId, name + " (" + Texts.NotFoundShort + ")"));
+                choices.Add(new KeyValuePair<Guid, string>(_planId, Texts.PowerPlanMissing(name)));
             }
 
             string storedName = _planName;
@@ -156,9 +158,9 @@ namespace AutoTrigger.Ui
             var row = new StackPanel { Orientation = Orientation.Horizontal };
             foreach (KeyValuePair<bool?, string> choice in new[]
             {
-                new KeyValuePair<bool?, string>(null, Texts.Unchanged),
-                new KeyValuePair<bool?, string>(true, Texts.On),
-                new KeyValuePair<bool?, string>(false, Texts.Off),
+                new KeyValuePair<bool?, string>(null, Texts.ScreenSaverChoiceUnchanged),
+                new KeyValuePair<bool?, string>(true, Texts.ScreenSaverChoiceOn),
+                new KeyValuePair<bool?, string>(false, Texts.ScreenSaverChoiceOff),
             })
             {
                 bool? value = choice.Key;
