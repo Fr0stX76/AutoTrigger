@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -71,16 +73,55 @@ namespace AutoTrigger.Tests
             wire = Command.FromWire(closed.ToWire());
             Check(wire.Kind == CommandKind.Closed && wire.ProfileName == "My Game", "Closed and its name kept through the pipe");
             Eq(CommandKind.Pause, Command.FromWire(Command.Parse(new[] { "/pause" }).ToWire()).Kind, "pause kept through the pipe");
+
+            Guid game = Guid.NewGuid();
+            Command launch = Command.Parse(new[] { "/launch", game.ToString("D", CultureInfo.InvariantCulture) });
+            Check(launch.Kind == CommandKind.Launch && launch.AppId == game && !launch.RunsProfile, "/launch with an application id");
+            Eq(game, Command.FromWire(launch.ToWire()).AppId, "application id kept through the pipe");
+            Eq(CommandKind.Invalid, Command.Parse(new[] { "/launch" }).Kind, "/launch without an id");
+            Eq(CommandKind.Invalid, Command.Parse(new[] { "/launch", "Metroid", "Dread" }).Kind, "/launch with a name instead of an id");
+            Eq(CommandKind.Launch, Command.Parse(DesktopShortcut.LaunchArguments(game).Split(' ')).Kind, "the arguments of a desktop shortcut are a /launch command");
+        }
+
+        private static void DesktopShortcuts()
+        {
+            const string autoTrigger = "C:/Program Files/AutoTrigger/AutoTrigger.exe";
+            var game = new AppEntry { Name = "Metroid: Dread?", Path = "D:/Eden/eden.exe", Launch = LaunchKind.Profile, LaunchProfileId = Guid.NewGuid() };
+            DesktopShortcut viaProfile = DesktopShortcut.For(game, autoTrigger);
+            Eq("Metroid Dread", viaProfile.Name, "characters Windows refuses are left out of the name");
+            Eq(autoTrigger, viaProfile.Target, "a profile launch calls AutoTrigger");
+            Eq(DesktopShortcut.LaunchArguments(game.Id), viaProfile.Arguments, "with /launch and the application id");
+            Eq("D:/Eden/eden.exe", viaProfile.IconPath, "with the icon of the program");
+            Check(viaProfile.IsSameAs("E:/Old/AutoTrigger.exe", " " + viaProfile.Arguments), "the same shortcut, from where AutoTrigger was before, is replaced");
+            Check(!viaProfile.IsSameAs(autoTrigger, DesktopShortcut.LaunchArguments(Guid.NewGuid())), "a shortcut of another application is kept");
+            Check(!viaProfile.IsSameAs("D:/Eden/eden.exe", string.Empty), "a shortcut to the program itself is kept");
+
+            var tool = new AppEntry { Name = "  ", Path = "C:/Tools/tool.exe", Launch = LaunchKind.Program };
+            DesktopShortcut direct = DesktopShortcut.For(tool, autoTrigger);
+            Eq("tool", direct.Name, "no name: the name of the program");
+            Eq("C:/Tools/tool.exe", direct.Target, "Program: the program itself");
+            Eq(string.Empty, direct.Arguments, "Program: no arguments");
+            Check(direct.IsSameAs("c:/tools/TOOL.exe", null), "Program: a shortcut to the same program is the same");
+            Check(!direct.IsSameAs("C:/Tools/tool.exe", "-safe"), "Program: a shortcut with its own arguments is kept");
+            Eq("tool.lnk|tool (2).lnk|tool (3).lnk", string.Join("|", direct.FileNames().Take(3)), "next names when a shortcut of that name is someone else's");
+            Eq(DesktopShortcut.MaxCopies, direct.FileNames().Count(), "a limited number of names");
+
+            Eq("Game", DesktopShortcut.For(new AppEntry { Name = "Game. ..", Path = "C:/G/g.exe" }, autoTrigger).Name, "trailing dots and spaces are left out, as Windows would");
+            Eq("AutoTrigger", DesktopShortcut.For(new AppEntry { Name = "<>|", Path = string.Empty }, autoTrigger).Name, "nothing left of the name: AutoTrigger");
+            Eq(new string('x', 100), DesktopShortcut.For(new AppEntry { Name = new string('x', 150), Path = "C:/G/g.exe" }, autoTrigger).Name, "a long name is cut");
         }
 
         private static void CommandPipe()
         {
             var never = new TaskCompletionSource<string>();
+            Guid known = Guid.NewGuid();
             int engineThread = 0;
             Func<Command, Task<string>> handle = command =>
             {
                 if (command.Kind == CommandKind.Toggle)
                     return never.Task;
+                if (command.Kind == CommandKind.Launch)
+                    return Task.FromResult(command.AppId == known ? CommandServer.Ok : CommandServer.Failed);
                 if (!command.RunsProfile)
                     return Task.FromResult(CommandServer.Ok);
                 var result = new TaskCompletionSource<string>();
@@ -101,6 +142,8 @@ namespace AutoTrigger.Tests
                 Check(engineThread != 0, "answer given by another thread");
                 Eq(1, CommandChannel.Send(Command.Parse(new[] { "/started", "Missing" }), pipe), "missing profile: exit code 1");
                 Eq(0, CommandChannel.Send(Command.Parse(new[] { "/pause" }), pipe), "pause: exit code 0");
+                Eq(0, CommandChannel.Send(Command.Parse(DesktopShortcut.LaunchArguments(known).Split(' ')), pipe), "known application: exit code 0");
+                Eq(1, CommandChannel.Send(Command.Parse(DesktopShortcut.LaunchArguments(Guid.NewGuid()).Split(' ')), pipe), "unknown application: exit code 1");
 
                 using (var silent = new NamedPipeClientStream(".", pipe, PipeDirection.InOut))
                 {

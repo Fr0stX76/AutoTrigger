@@ -155,6 +155,10 @@ namespace AutoTrigger.Core.Engine
             if (path.Length == 0)
                 return ActionOutcome.Failure("no program set");
 
+            // Chosen by the user, so not a skipped action: it is logged as a success, not as a warning.
+            if (action.SkipIfRunning && IsRunning(path))
+                return ActionOutcome.Success("already running, not started");
+
             string folder = ProgramFolder(path);
             // Checked again here: a window program must never be started hidden, even if the setting says so.
             bool hidden = action.HideConsole && ConsoleProgram.Is(path);
@@ -297,6 +301,25 @@ namespace AutoTrigger.Core.Engine
                     result.Add(p);
             }
             return result;
+        }
+
+        // The program itself is looked for, not its arguments: a launcher already open counts as running.
+        private bool IsRunning(string path)
+        {
+            if (!path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                return false;
+            string exeName = CloseTargetExeName(path);
+            var running = new List<ProcessEntry>();
+            _processes.Snapshot(running);
+            foreach (ProcessEntry entry in running)
+            {
+                if (entry.Pid == _ownPid || !string.Equals(entry.ExeName, exeName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                ProcessDetails details = _processes.Query(entry.Pid);
+                if (details != null && PathMatcher.SamePath(details.Path, path))
+                    return true;
+            }
+            return false;
         }
 
         public static string CloseTargetExeName(string target)

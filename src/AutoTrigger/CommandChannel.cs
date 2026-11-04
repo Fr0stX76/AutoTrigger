@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.IO.Pipes;
 using System.Linq;
@@ -19,6 +20,7 @@ namespace AutoTrigger
         Toggle,
         Started,
         Closed,
+        Launch,
         Invalid,
     }
 
@@ -27,6 +29,8 @@ namespace AutoTrigger
         public CommandKind Kind { get; private set; }
 
         public string ProfileName { get; private set; } = string.Empty;
+
+        public Guid AppId { get; private set; }
 
         public bool RunsProfile => Kind == CommandKind.Started || Kind == CommandKind.Closed;
 
@@ -58,11 +62,15 @@ namespace AutoTrigger
                 case "toggle": return new Command { Kind = CommandKind.Toggle };
                 case "started" when rest.Length > 0: return new Command { Kind = CommandKind.Started, ProfileName = rest };
                 case "closed" when rest.Length > 0: return new Command { Kind = CommandKind.Closed, ProfileName = rest };
+                case "launch" when Guid.TryParse(rest, out Guid appId): return new Command { Kind = CommandKind.Launch, AppId = appId };
                 default: return new Command { Kind = CommandKind.Invalid };
             }
         }
 
-        public string ToWire() => RunsProfile ? Kind.ToString().ToLowerInvariant() + " " + ProfileName : Kind.ToString().ToLowerInvariant();
+        public string ToWire() =>
+            Kind == CommandKind.Launch ? "launch " + AppId.ToString("D", CultureInfo.InvariantCulture)
+            : RunsProfile ? Kind.ToString().ToLowerInvariant() + " " + ProfileName
+            : Kind.ToString().ToLowerInvariant();
     }
 
     internal static class CommandWire

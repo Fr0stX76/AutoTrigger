@@ -6,6 +6,7 @@ namespace AutoTrigger.Ui
     internal static class Res
     {
         public const string TextPrimary = "TextFillColorPrimaryBrush";
+        public const string TextSecondary = "TextFillColorSecondaryBrush";
         public const string AccentFill = "AccentFillColorDefaultBrush";
         public const string TextOnAccent = "TextOnAccentFillColorPrimaryBrush";
         public const string Success = "SystemFillColorSuccessBrush";
@@ -47,6 +48,7 @@ namespace AutoTrigger.Ui
                 FontWeight = weight ?? FontWeights.Normal,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
+                ToolTip = CutText.Marker,
             };
             block.SetResourceReference(TextBlock.ForegroundProperty, brush);
             return block;

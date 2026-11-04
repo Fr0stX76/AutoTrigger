@@ -39,6 +39,7 @@ namespace AutoTrigger.Core.Text
         public static string KeyboardShortcuts => Get(nameof(KeyboardShortcuts));
         public static string Launch => Get(nameof(Launch));
         public static string NoApplicationsYet => Get(nameof(NoApplicationsYet));
+        public static string CreateDesktopShortcut => Get(nameof(CreateDesktopShortcut));
 
         public static string Add => Get(nameof(Add));
         public static string Edit => Get(nameof(Edit));
@@ -84,6 +85,8 @@ namespace AutoTrigger.Core.Text
         public static string SearchApplications => Get(nameof(SearchApplications));
         public static string ApplicationMonitoringOn => Get(nameof(ApplicationMonitoringOn));
         public static string ApplicationMonitoringOff => Get(nameof(ApplicationMonitoringOff));
+        public static string LaunchButton => Get(nameof(LaunchButton));
+        public static string LaunchNone => Get(nameof(LaunchNone));
         public static string ProfileNone => Get(nameof(ProfileNone));
         public static string AddApplication => Get(nameof(AddApplication));
         public static string EditApplication => Get(nameof(EditApplication));
@@ -127,6 +130,7 @@ namespace AutoTrigger.Core.Text
         public static string Arguments => Get(nameof(Arguments));
         public static string ArgumentsNone => Get(nameof(ArgumentsNone));
         public static string HideConsoleWindow => Get(nameof(HideConsoleWindow));
+        public static string SkipIfRunning => Get(nameof(SkipIfRunning));
         public static string HoldNext => Get(nameof(HoldNext));
         public static string StopHoldingAfter => Get(nameof(StopHoldingAfter));
         public static string NoProgram => Get(nameof(NoProgram));
@@ -258,6 +262,9 @@ namespace AutoTrigger.Core.Text
         public static string LaunchFailed(string name, string reason) => Fill(nameof(LaunchFailed), "name", name, "reason", reason);
         public static string HdrFailed(string reason) => Fill(nameof(HdrFailed), "reason", reason);
         public static string StartupFailed(string reason) => Fill(nameof(StartupFailed), "reason", reason);
+        public static string ShortcutFailed(string reason) => Fill(nameof(ShortcutFailed), "reason", reason);
+        public static string NoDesktopFolder => Get(nameof(NoDesktopFolder));
+        public static string ShortcutNamesTaken => Get(nameof(ShortcutNamesTaken));
         public static string RestartFailed(string reason) => Fill(nameof(RestartFailed), "reason", reason);
         public static string StartupError(string path) => Fill(nameof(StartupError), "path", path);
         public static string FatalError(string path) => Fill(nameof(FatalError), "path", path);

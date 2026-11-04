@@ -18,6 +18,7 @@ How the code is organized, for anyone who maintains it. Comments in the code exp
 | UI thread | Windows, tray, settings edits (`SettingsController`), keyboard shortcuts (`HotkeyService`, `RegisterHotKey` on a message-only window), the focus hook (`ForegroundWatcher`). |
 | Engine thread (`EngineLoop`) | All engine state: process detection, focus, event runs, timers. Other threads only `Post` to it. |
 | Thread pool | Actions (`ActionExecutor`), the command line server (`CommandServer`), settings saves (`SettingsStore`). |
+| Desktop shortcut | One short STA thread per shortcut: the shell's ShellLink object (`WindowsShortcuts`) needs one. |
 | Icons (`AppIcons`) | Reads program icons and keeps their cache, on its own STA thread. |
 | Log writer | Writes `AutoTrigger.log` in batches. |
 
@@ -34,17 +35,18 @@ Rules that keep this safe:
 2. **Plan** (`PlanBuilder`): the profile's actions for the event, with *Reference profile* inlined (8 levels at most, loops refused).
 3. **Run** (`EventRun`): actions start one after the other; a delay counts from the end of the previous action; *Hold next* waits for the program to end, up to its cap.
 4. **Newest takes over** (`TriggerEngine.Runs`): a new run with actions fast-tracks the runs of other applications and of keyboard shortcuts (remaining actions at once, holds released) and waits for them, 10 s at most.
-5. **On demand**: a keyboard shortcut, `/started` or `/closed` runs the *Started* or *Closed* actions of a profile, also while monitoring is paused.
+5. **On demand**: a keyboard shortcut, `/started` or `/closed` runs the *Started* or *Closed* actions of a profile, also while monitoring is paused. The Launch button of the Status page, or `/launch` from a desktop shortcut, runs the *Started* actions of the profile chosen in *Launch button*, or starts the application's program.
 
 ## User interface
 
-The window, pages and dialogs are built in C#, without XAML, on WPF UI. The whole app compiles and reads as C#, and each page builds its layout in short `Build` methods such as `BuildStatusCard`.
+The window, pages and dialogs are built in C#, without XAML, on WPF UI. The whole app compiles and reads as C#, and each page builds its layout in short `Build` methods such as `BuildDisplaysCard`.
 
 - `Kit`: the shared controls (buttons, fields, switches, lists) and their WPF UI styles.
 - `PageColumns`: the frame of the pages in two columns (Status, Profiles, Settings): margins, a heading over each column, and each column scrolling on its own. Each page sets its column widths.
 - `Spacing`: the spacing scale (4, 8, 12, 16, 24, 32, plus 18 between form fields) and the page, panel and list margins. Margins use these names; one-off values stay as numbers where they are used.
 - `Res`: theme brushes and text, so light and dark themes follow Windows.
 - `DropDowns`, `WindowPlacement`, `DialogFit`: list placement and dialog position, as Windows 11 does them.
+- The process names itself `AutoTrigger.7f3c1d2e` on the taskbar (AppUserModelID), so a window started by a desktop shortcut of a game keeps AutoTrigger's icon instead of the shortcut's.
 
 ## Settings
 
@@ -60,13 +62,13 @@ The window, pages and dialogs are built in C#, without XAML, on WPF UI. The whol
 - The other files of `lang` translate the same keys. A text that is missing, empty, unknown or without the same placeholders as English is left out, and English is shown instead.
 - The language is read once at start: the setting (`language` in settings.json), otherwise the Windows display language, otherwise English. A file of the same name in `%LOCALAPPDATA%\AutoTrigger` replaces texts of the built-in one, so translators see their changes without building; the log says what was used or left out.
 - A message the engine or the settings code shows to the user is a `Note`: the window renders it in the active language, the log in English. The log is written in English; only error details that come from Windows or .NET (an exception message) can be in the language of Windows or of the window.
-- Layouts never assume the English width: label columns size to their longest label, a control in Settings moves under its label when there is no room beside it, and a text that still does not fit ends with an ellipsis and shows in full in its tooltip. `"language": "pseudo"` in settings.json shows every text accented and 40 % longer, to find texts that are cut or not translated.
+- Layouts never assume the English width: label columns size to their longest label, a control in Settings moves under its label when there is no room beside it, and a text that still does not fit ends with an ellipsis and shows in full in its tooltip (`CutText`), choices of a combo box included. `"language": "pseudo"` in settings.json shows every text accented and 40 % longer, to find texts that are cut or not translated.
 - Changing the language restarts AutoTrigger: the new process gets `/restarted <pid>`, waits for the old one to close, then opens on Settings.
 - Translators work only in `lang`: see [TRANSLATING.md](TRANSLATING.md).
 
 ## Command line
 
-A second `AutoTrigger.exe` with `/pause`, `/resume`, `/toggle`, `/started "Name"` or `/closed "Name"` sends one line through the named pipe `AutoTrigger.7f3c1d2e.Commands.<session>` and waits for one line back. The pipe is local and open to the current user only. The server keeps a single instance for the whole session, so no other program can take the name. It drops a silent client after 5 s and answers within 10 s.
+A second `AutoTrigger.exe` with `/pause`, `/resume`, `/toggle`, `/started "Name"`, `/closed "Name"` or `/launch <application id>` sends one line through the named pipe `AutoTrigger.7f3c1d2e.Commands.<session>` and waits for one line back. The pipe is local and open to the current user only. The server keeps a single instance for the whole session, so no other program can take the name. It drops a silent client after 5 s and answers within 10 s.
 
 ## Tests
 

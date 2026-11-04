@@ -112,6 +112,9 @@ namespace AutoTrigger.Ui
         [DllImport("shell32.dll")]
         public static extern UIntPtr SHAppBarMessage(uint message, ref APPBARDATA data);
 
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        public static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
+
         public const int ASFW_ANY = -1;
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "RegisterWindowMessageW")]

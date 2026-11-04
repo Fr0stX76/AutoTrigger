@@ -20,7 +20,10 @@ namespace AutoTrigger.Ui
         private const double NameColumn = 160;
         private const double ProfileColumn = 205;
         private const double MonitoringColumn = 150;
-        private const double FixedColumns = 44 + 16 + 24 + 24;
+        // Below these, in the narrowest window, names and choices end with an ellipsis.
+        private const double NameFloor = 140;
+        private const double ComboFloor = 170;
+        private const double FixedColumns = 44 + 16 + 24 + 24 + 24;
         private const double SwitchAndGap = 40 + 10;
         private const double TableChrome = 16 + 16 + 2 + 16;
         private const double ComboChrome = 56;
@@ -36,6 +39,7 @@ namespace AutoTrigger.Ui
         private readonly Grid _headings;
         private double _nameNeed = NameColumn;
         private double _profileNeed = ProfileColumn;
+        private double _launchNeed = ProfileColumn;
         private double _monitoringNeed = MonitoringColumn;
         private int _measuredVersion = -1;
         private readonly Dictionary<Guid, ListRow> _rowById = new Dictionary<Guid, ListRow>();
@@ -124,8 +128,11 @@ namespace AutoTrigger.Ui
             TextBlock profileHeading = Kit.Caption(Texts.Profile);
             Grid.SetColumn(profileHeading, 4);
             _headings.Children.Add(profileHeading);
+            TextBlock launchHeading = Kit.Caption(Texts.LaunchButton);
+            Grid.SetColumn(launchHeading, 6);
+            _headings.Children.Add(launchHeading);
             TextBlock monitoringHeading = Kit.Caption(Texts.Monitoring);
-            Grid.SetColumn(monitoringHeading, 6);
+            Grid.SetColumn(monitoringHeading, 8);
             _headings.Children.Add(monitoringHeading);
             var headingBorder = new Border { BorderThickness = new Thickness(0, 0, 0, 1), Child = _headings };
             headingBorder.SetResourceReference(Border.BorderBrushProperty, Res.CardStroke);
@@ -186,6 +193,8 @@ namespace AutoTrigger.Ui
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ProfileColumn) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(ProfileColumn) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Spacing.Section) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(MonitoringColumn) });
             return grid;
         }
@@ -196,6 +205,8 @@ namespace AutoTrigger.Ui
             _nameNeed = Math.Max(NameColumn, _nameNeed);
             double profiles = Kit.ProfileChoices(Settings).Select(p => TextWidth(p.Value)).DefaultIfEmpty(0).Max();
             _profileNeed = Math.Max(ProfileColumn, profiles + ComboChrome);
+            double launches = LaunchChoices.For(Settings).Select(p => TextWidth(p.Value)).DefaultIfEmpty(0).Max();
+            _launchNeed = Math.Max(ProfileColumn, launches + ComboChrome);
             double state = Math.Max(TextWidth(Texts.ApplicationMonitoringOn), TextWidth(Texts.ApplicationMonitoringOff));
             _monitoringNeed = Math.Max(MonitoringColumn, SwitchAndGap + state);
         }
@@ -211,26 +222,29 @@ namespace AutoTrigger.Ui
         private void ApplyColumns()
         {
             double available = _root.ActualWidth - TableChrome - FixedColumns - _monitoringNeed;
-            (double name, double profile) = FitColumns(_nameNeed, _profileNeed, available);
+            double[] widths = FitColumns(new[] { _nameNeed, _profileNeed, _launchNeed }, new[] { NameFloor, ComboFloor, ComboFloor }, available);
             foreach (Grid grid in _rowGrids.Prepend(_headings))
             {
-                grid.ColumnDefinitions[2].Width = new GridLength(name);
-                grid.ColumnDefinitions[4].Width = new GridLength(profile);
-                grid.ColumnDefinitions[6].Width = new GridLength(_monitoringNeed);
+                grid.ColumnDefinitions[2].Width = new GridLength(widths[0]);
+                grid.ColumnDefinitions[4].Width = new GridLength(widths[1]);
+                grid.ColumnDefinitions[6].Width = new GridLength(widths[2]);
+                grid.ColumnDefinitions[8].Width = new GridLength(_monitoringNeed);
             }
         }
 
-        private static (double Name, double Profile) FitColumns(double name, double profile, double available)
+        // Each column gets what its longest text needs; when the window is narrower, every column gives up
+        // the same share of what it has above its floor.
+        private static double[] FitColumns(double[] needs, double[] floors, double available)
         {
-            if (available <= 0 || name + profile <= available)
-                return (name, profile);
-            double extraName = name - NameColumn;
-            double extraProfile = profile - ProfileColumn;
-            double room = available - NameColumn - ProfileColumn;
-            if (room <= 0 || extraName + extraProfile <= 0)
-                return (NameColumn, ProfileColumn);
-            double scale = room / (extraName + extraProfile);
-            return (NameColumn + extraName * scale, ProfileColumn + extraProfile * scale);
+            double total = needs.Sum();
+            if (available <= 0 || total <= available)
+                return needs;
+            double extra = total - floors.Sum();
+            double room = available - floors.Sum();
+            if (room <= 0 || extra <= 0)
+                return floors;
+            double scale = room / extra;
+            return needs.Select((need, i) => floors[i] + (need - floors[i]) * scale).ToArray();
         }
 
         private string SearchText => _search?.Text?.Trim() ?? string.Empty;
@@ -254,9 +268,10 @@ namespace AutoTrigger.Ui
             _rowById.Clear();
             _count.Text = Settings.Applications.Count.ToString(CultureInfo.CurrentCulture);
             List<KeyValuePair<Guid, string>> profiles = Kit.ProfileChoices(Settings);
+            List<KeyValuePair<string, string>> launches = LaunchChoices.For(Settings);
             foreach (AppEntry app in Visible())
             {
-                ListRow row = AppRow(app, profiles);
+                ListRow row = AppRow(app, profiles, launches);
                 _rowById[app.Id] = row;
                 _rows.Children.Add(row);
             }
@@ -275,7 +290,7 @@ namespace AutoTrigger.Ui
             UpdateButtons();
         }
 
-        private ListRow AppRow(AppEntry app, List<KeyValuePair<Guid, string>> profiles)
+        private ListRow AppRow(AppEntry app, List<KeyValuePair<Guid, string>> profiles, List<KeyValuePair<string, string>> launches)
         {
             Grid grid = Columns();
             _rowGrids.Add(grid);
@@ -292,8 +307,12 @@ namespace AutoTrigger.Ui
             Grid.SetColumn(profile, 4);
             grid.Children.Add(profile);
 
+            ComboBox launch = LaunchCombo(app, launches);
+            Grid.SetColumn(launch, 6);
+            grid.Children.Add(launch);
+
             StackPanel monitoring = MonitoringSwitch(app);
-            Grid.SetColumn(monitoring, 6);
+            Grid.SetColumn(monitoring, 8);
             grid.Children.Add(monitoring);
 
             var row = new ListRow(grid, Spacing.ListRow) { Margin = new Thickness(0, 2, 0, 2), IsSelected = app.Id == _selectedId };
@@ -317,6 +336,20 @@ namespace AutoTrigger.Ui
             Kit.WithScrollBar(combo);
             combo.HorizontalAlignment = HorizontalAlignment.Stretch;
             System.Windows.Automation.AutomationProperties.SetName(combo, Texts.Profile + " " + app.Name);
+            return combo;
+        }
+
+        private ComboBox LaunchCombo(AppEntry app, List<KeyValuePair<string, string>> launches)
+        {
+            ComboBox combo = Kit.LazyCombo(launches, LaunchChoices.KeyOf(app), key =>
+            {
+                LaunchChoices.Apply(app, key);
+                _settings.Commit();
+                _shownVersion = _settings.Version;
+            }, 0);
+            Kit.WithScrollBar(combo);
+            combo.HorizontalAlignment = HorizontalAlignment.Stretch;
+            System.Windows.Automation.AutomationProperties.SetName(combo, Texts.LaunchButton + " " + app.Name);
             return combo;
         }
 

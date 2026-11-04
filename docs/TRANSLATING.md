@@ -67,10 +67,15 @@ Delete the file when your correction is part of a release.
 
 | Keys | Where they appear |
 |---|---|
+| `Monitoring`, `Status` | Status page: `Monitoring` is the heading of the cards on the right, `Status` the row of the monitoring switch. `Monitoring` is also a column of the Applications page. |
+| `TabDisplays` | Name of the Displays page, also the heading of the Displays card of the Status page. |
 | `StatusHdrOn`, `StatusHdrOff` | Status page, value of the HDR row. |
-| `StatusMonitoringOn`, `StatusMonitoringOff` | Status page, value of the Monitoring row. |
-| `StatusNoApplication`, `StatusNoProfile`, `StatusNoShortcuts` | Status page, values of Current application, Current profile and Keyboard shortcuts. |
+| `StatusMonitoringOn`, `StatusMonitoringOff` | Status page, value of the Status row: monitoring on or off. |
+| `StatusNoApplication`, `StatusNoProfile`, `StatusNoShortcuts` | Status page, values of Current application, Current profile and Keyboard shortcuts. `StatusNoApplication` also stands in the list of applications when none has something to launch. |
 | `ApplicationMonitoringOn`, `ApplicationMonitoringOff` | Applications page, monitoring of one application. |
+| `LaunchButton`, `LaunchNone` | Applications page and application window: what the Launch button of the Status page runs. `LaunchButton` names that button, as in the Status page; `LaunchNone` is the choice with no button. |
+| `CreateDesktopShortcut`, `ShortcutFailed` | Status page, right-click menu of an application, and its error message. The shortcut is a file on the desktop: use the word of Windows for it, not the one for a keyboard shortcut. |
+| `NoDesktopFolder`, `ShortcutNamesTaken` | The `{reason}` of `ShortcutFailed`, after a colon. |
 | `ProfileNone`, `ArgumentsNone` | No profile for an application; no arguments for a program. |
 | `...Unchanged`, `HdrChoiceOn`, `HdrChoiceOff`, `ScreenSaverChoiceOn`, `ScreenSaverChoiceOff` | Choices in an action, for the setting named by the key. In languages with genders, they agree with that setting. |
 | `DisplayHdrOn`, `DisplayHdrOffSupported`, `DisplayHdrNotSupported` | Displays page, HDR state of a display. |

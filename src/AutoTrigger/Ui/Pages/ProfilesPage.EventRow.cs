@@ -24,7 +24,6 @@ namespace AutoTrigger.Ui
             private readonly Profile _profile;
             private readonly EventKind _kind;
             private const double CardGap = 8;
-            private const double CardPaddingWidth = 12 + 10 + 2;
             private const double BadgeSize = 18;
             private const double ActionButtonSize = 24;
             private const double MarkerWidth = 3;
@@ -213,7 +212,7 @@ namespace AutoTrigger.Ui
             }
 
             // The type keeps the rest of the line beside the position: in some languages it is three or four words.
-            private Grid CardTitle(ProfileAction action, int index, ValidationIssue issue)
+            private static Grid CardTitle(ProfileAction action, int index, ValidationIssue issue)
             {
                 var title = new Grid();
                 title.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -224,8 +223,6 @@ namespace AutoTrigger.Ui
                 TextBlock type = Res.Text(typeText, 12, null, issue != null ? Res.Critical : Res.TextPrimary);
                 type.Margin = Spacing.Left(Spacing.Small);
                 type.VerticalAlignment = VerticalAlignment.Center;
-                if (Kit.TextWidth(this, typeText, 12, FontWeights.Normal) > CardWidth - CardPaddingWidth - BadgeSize - Spacing.Small)
-                    type.ToolTip = typeText;
                 Grid.SetColumn(type, 1);
                 title.Children.Add(type);
                 return title;

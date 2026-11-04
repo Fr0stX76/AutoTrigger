@@ -28,6 +28,9 @@ namespace AutoTrigger
 {
     internal sealed partial class App : Application
     {
+        // Same stem as the names of the instance lock and of the command pipe.
+        private const string TaskbarIdentity = "AutoTrigger.7f3c1d2e";
+
         private readonly SingleInstance _instance;
         private SettingsStore _store;
         private AppSettings _settings;
@@ -87,12 +90,14 @@ namespace AutoTrigger
         {
             string dataDir = SettingsStore.DefaultDirectory;
             StartLog(dataDir);
+            UseOwnTaskbarIdentity();
             LoadResult loaded = LoadSettings(dataDir);
             UseLanguage(dataDir);
 
             Resources.MergedDictionaries.Add(new ThemesDictionary { Theme = ApplicationTheme.Dark });
             Resources.MergedDictionaries.Add(new ControlsDictionary());
             RemoveListContextMenus();
+            CutText.Register();
 
             CreateServices(dataDir);
             StatusPage status = CreateWindow();
@@ -108,6 +113,8 @@ namespace AutoTrigger
             _controller.Changed += () => _hotkeys.Update(_settings.Profiles);
             if (_startCommand.RunsProfile)
                 _engine.RunProfileNamed(_startCommand.ProfileName, _startCommand.Event, "command line");
+            else if (_startCommand.Kind == CommandKind.Launch)
+                LaunchApp(_startCommand.AppId);
 
             if ((_restarted || !_settings.StartMinimized) && _startCommand.Kind == CommandKind.None)
                 ShowWindow();
@@ -119,6 +126,15 @@ namespace AutoTrigger
             _instance.Listen(() => Dispatcher.BeginInvoke(new Action(ShowWindow)));
             _commands = new CommandServer(CommandChannel.PipeName, HandleCommand, CommandPipe.CreateSecured);
             CreateUpdateCheck();
+        }
+
+        // Windows gives a window the icon and name of the shortcut that started its process, unless the process names
+        // itself: started by the desktop shortcut of a game, AutoTrigger would wear that game's icon until it closes.
+        private static void UseOwnTaskbarIdentity()
+        {
+            int result = NativeUi.SetCurrentProcessExplicitAppUserModelID(TaskbarIdentity);
+            if (result != 0)
+                Log.Warning("Taskbar identity not set: 0x" + result.ToString("X8", CultureInfo.InvariantCulture));
         }
 
         // WPF gives scroll bars and combo boxes a context menu that Windows 11 does not show.
@@ -251,12 +267,14 @@ namespace AutoTrigger
         {
             _controller.Changed += () =>
             {
-                status.SetApplications(_settings.Applications);
+                status.SetApplications(_settings.Applications, _settings.Profiles);
                 status.SetShortcuts(_settings.Profiles);
             };
-            status.SetApplications(_settings.Applications);
+            status.SetApplications(_settings.Applications, _settings.Profiles);
             status.SetShortcuts(_settings.Profiles);
-            status.LaunchRequested += Launch;
+            status.ShowDisplays(_displays.Monitors);
+            status.LaunchRequested += app => Launch(app, "Launch button");
+            status.ShortcutRequested += CreateDesktopShortcut;
             status.MonitoringChanged += on => SetMonitoringPaused(!on);
             status.HdrChanged += SetHdr;
             status.ProfileClicked += id =>
@@ -264,7 +282,9 @@ namespace AutoTrigger
                 _window.ShowTab(Ui.MainWindow.ProfilesTab);
                 _profilesPage.Select(id);
             };
+            status.DisplaysClicked += () => _window.ShowTab(Ui.MainWindow.DisplaysTab);
             _displays.Changed += () => _window.Status.ShowHdr(_displays.Hdr, _displays.IsChanging);
+            _displays.MonitorsChanged += () => status.ShowDisplays(_displays.Monitors);
         }
 
         private void CreateDisplayTimer()
@@ -458,18 +478,71 @@ namespace AutoTrigger
         private static bool IsRegistryError(Exception ex) =>
             ex is SecurityException || ex is UnauthorizedAccessException || ex is IOException;
 
-        private void Launch(AppEntry app)
+        private void Launch(AppEntry app, string from, Action<bool> done = null)
+        {
+            switch (app.Launch)
+            {
+                case LaunchKind.Profile:
+                    _engine.RunProfile(app.LaunchProfileId, EventKind.Started, from + " of " + app.Name, done);
+                    break;
+                case LaunchKind.Program:
+                    LaunchProgram(app, done);
+                    break;
+                default:
+                    Log.Warning($"{app.Name}: its Launch button runs nothing ({from})");
+                    done?.Invoke(false);
+                    break;
+            }
+        }
+
+        private void CreateDesktopShortcut(AppEntry app)
+        {
+            DesktopShortcut shortcut = DesktopShortcut.For(app, _exePath);
+            var writer = new Thread(() =>
+            {
+                Func<string> reason;
+                try
+                {
+                    string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                    string saved = desktop.Length == 0 ? null : WindowsShortcuts.Save(shortcut, desktop);
+                    if (saved != null)
+                    {
+                        Log.Info($"{app.Name}: desktop shortcut {Path.GetFileName(saved)} saved");
+                        return;
+                    }
+                    Log.Warning(desktop.Length == 0
+                        ? $"{app.Name}: desktop shortcut not saved: this account has no Desktop folder"
+                        : $"{app.Name}: desktop shortcut not saved: {DesktopShortcut.MaxCopies} other shortcuts already have its name");
+                    reason = desktop.Length == 0 ? (Func<string>)(() => Texts.NoDesktopFolder) : () => Texts.ShortcutNamesTaken;
+                }
+                catch (Exception ex)
+                {
+                    // The shell's COM errors are not documented, and this thread must not end AutoTrigger.
+                    Log.Error($"{app.Name}: desktop shortcut not saved", ex);
+                    reason = () => ex.Message;
+                }
+                // Texts are read on the UI thread, where the language of the window is set.
+                Dispatcher.BeginInvoke(new Action(() =>
+                    MessageDialog.Show(_window, Texts.CreateDesktopShortcut, Texts.ShortcutFailed(reason()), Texts.Ok)));
+            })
+            { IsBackground = true, Name = "Desktop shortcut" };
+            writer.SetApartmentState(ApartmentState.STA);
+            writer.Start();
+        }
+
+        private void LaunchProgram(AppEntry app, Action<bool> done)
         {
             string path = ActionExecutor.ExpandPath(app.Path);
             string folder = ActionExecutor.ProgramFolder(path);
             Task.Run(() => _processes.Start(path, string.Empty, folder, false, false)).ContinueWith(t =>
             {
-                if (t.Status == TaskStatus.RanToCompletion)
+                done?.Invoke(!t.IsFaulted);
+                if (!t.IsFaulted)
                 {
                     Log.Info($"{app.Name} launched from AutoTrigger");
                     return;
                 }
-                string message = t.Exception?.GetBaseException().Message ?? "unknown error";
+                string message = t.Exception.GetBaseException().Message;
                 Log.Error($"{app.Name} cannot be launched: {message}");
                 Dispatcher.BeginInvoke(new Action(() =>
                     MessageDialog.Show(_window, Texts.LaunchFailedTitle, Texts.LaunchFailed(app.Name, message), Texts.Ok)));

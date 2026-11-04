@@ -300,14 +300,31 @@ namespace AutoTrigger.Ui
             return toggle;
         }
 
+        // Choices end with an ellipsis instead of being cut, in the list and in the closed combo box.
+        private static readonly DataTemplate ChoiceText = BuildChoiceText();
+
+        private static DataTemplate BuildChoiceText()
+        {
+            var text = new FrameworkElementFactory(typeof(TextBlock));
+            text.SetBinding(TextBlock.TextProperty, new Binding());
+            text.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+            text.SetValue(FrameworkElement.ToolTipProperty, CutText.Marker);
+            var template = new DataTemplate { VisualTree = text };
+            template.Seal();
+            return template;
+        }
+
+        private static ComboBoxItem Choice<T>(KeyValuePair<T, string> item) =>
+            new ComboBoxItem { Content = item.Value, Tag = item.Key, ContentTemplate = ChoiceText };
+
         public static ComboBox Combo<T>(IEnumerable<KeyValuePair<T, string>> items, T selected, Action<T> changed, double minWidth = 220)
         {
-            var combo = new ComboBox { MinWidth = minWidth };
+            var combo = new ComboBox { MinWidth = minWidth, ToolTip = CutText.Marker };
             DropDowns.Attach(combo);
             T current = selected;
             foreach (KeyValuePair<T, string> item in items)
             {
-                var entry = new ComboBoxItem { Content = item.Value, Tag = item.Key };
+                ComboBoxItem entry = Choice(item);
                 combo.Items.Add(entry);
                 if (EqualityComparer<T>.Default.Equals(item.Key, selected))
                     combo.SelectedItem = entry;
@@ -331,7 +348,7 @@ namespace AutoTrigger.Ui
 
         public static ComboBox LazyCombo<T>(IReadOnlyList<KeyValuePair<T, string>> items, T selected, Action<T> changed, double minWidth = 220)
         {
-            var combo = new ComboBox { MinWidth = minWidth };
+            var combo = new ComboBox { MinWidth = minWidth, ToolTip = CutText.Marker };
             DropDowns.Attach(combo);
             T current = selected;
             bool filled = false;
@@ -340,7 +357,7 @@ namespace AutoTrigger.Ui
             {
                 if (!EqualityComparer<T>.Default.Equals(item.Key, selected))
                     continue;
-                var entry = new ComboBoxItem { Content = item.Value, Tag = item.Key };
+                ComboBoxItem entry = Choice(item);
                 combo.Items.Add(entry);
                 combo.SelectedItem = entry;
                 break;
@@ -357,7 +374,7 @@ namespace AutoTrigger.Ui
                     combo.Items.Clear();
                     foreach (KeyValuePair<T, string> item in items)
                     {
-                        var entry = new ComboBoxItem { Content = item.Value, Tag = item.Key };
+                        ComboBoxItem entry = Choice(item);
                         combo.Items.Add(entry);
                         if (EqualityComparer<T>.Default.Equals(item.Key, current))
                             combo.SelectedItem = entry;

@@ -99,6 +99,22 @@ namespace AutoTrigger.Core.Model
             return null;
         }
 
+        // Applications that used the profile keep running without it: no profile, and nothing to launch.
+        public void RemoveProfile(Profile profile)
+        {
+            foreach (AppEntry app in Applications)
+            {
+                if (app.ProfileId == profile.Id)
+                    app.ProfileId = Guid.Empty;
+                if (app.Launch == LaunchKind.Profile && app.LaunchProfileId == profile.Id)
+                {
+                    app.Launch = LaunchKind.None;
+                    app.LaunchProfileId = Guid.Empty;
+                }
+            }
+            Profiles.Remove(profile);
+        }
+
         public AppEntry FindApplication(Guid id)
         {
             foreach (AppEntry app in Applications)
@@ -108,6 +124,13 @@ namespace AutoTrigger.Core.Model
             }
             return null;
         }
+    }
+
+    public enum LaunchKind
+    {
+        None,
+        Program,
+        Profile,
     }
 
     public sealed class AppEntry
@@ -123,6 +146,12 @@ namespace AutoTrigger.Core.Model
         public Guid ProfileId { get; set; }
 
         public bool Enabled { get; set; } = true;
+
+        // What the Launch button of the Status page runs. Program by default, as before 1.6; an application
+        // added by hand starts with None, since a game started without its store launcher may not run.
+        public LaunchKind Launch { get; set; } = LaunchKind.Program;
+
+        public Guid LaunchProfileId { get; set; }
 
         public string FileName
         {

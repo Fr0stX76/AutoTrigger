@@ -19,7 +19,8 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 - Start helper programs before a game or app and close them after it.
 - Change settings when an app gains the focus, and set them back when you switch to another window.
 - Press a keyboard shortcut of another app when a game starts, for example to switch a mode in an overlay or a recording app.
-- Run the actions of a profile on demand, from a keyboard shortcut or a desktop shortcut, without waiting for an app to start.
+- Run the actions of a profile on demand, from a keyboard shortcut, a desktop shortcut or the Status page, without waiting for an app to start.
+- Start a game from the Status page through a profile, for example an emulator with the game and the right display settings.
 
 ## Features
 
@@ -27,13 +28,15 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 - Actions, each with its own delay:
   - **Display**: HDR, resolution, refresh rate and, on NVIDIA, color depth, format and range. Works with DSR and DLDSR.
   - **Windows settings**: default audio output and input devices, power plan, and screen saver on or off.
-  - **Run program**, with options to hold the next actions until it finishes and to hide the console window of command-line tools and scripts, and **Close program**.
+  - **Run program**, with options to hold the next actions until it finishes, to hide the console window of command-line tools and scripts, and not to start a program that is already running.
+  - **Close program**: asks a program to close, and can force it after a delay.
   - **Hotkey**: presses a keyboard shortcut of another app.
   - **Reference profile**: reuses the actions of another profile.
 - An optional name for Run program, Close program and Hotkey actions, shown on the action card and in the log.
 - Shared profiles, a monitoring switch per application and a global pause.
 - **Restart app**: once the Started actions are done, the program is closed and started again with the same arguments, for games that read HDR or the resolution only when they start.
 - Keyboard shortcuts and command line to run the Started or Closed actions of a profile on demand.
+- **Launch button** on the Status page, per application: starts its program or runs the Started actions of a profile. A desktop shortcut can do the same.
 - Windows Store apps, focus included.
 - Light and dark themes, following Windows by default.
 - 37 languages, following the Windows display language by default, see [Languages](#languages).
@@ -41,13 +44,13 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 - Update check: a link at the bottom of the window and a dot on the tray icon when a new version is out.
 - About 0.06 % of one CPU core while idle. No administrator rights. The only network access is the update check, which can be turned off.
 
-<img src="images/status.png" alt="AutoTrigger Status page: HDR and monitoring switches, current application and profile, list of followed applications">
+<img src="images/status.png" alt="AutoTrigger Status page: applications with their Launch button and what it runs; monitoring switch, current application and profile; HDR switch and each display with its resolution and refresh rate; keyboard shortcuts">
 
-<img src="images/applications.png" alt="Applications page: each game or app with its profile and a monitoring switch">
+<img src="images/applications.png" alt="Applications page: each game or app with its profile, what its Launch button runs, and a monitoring switch">
 
 <img src="images/display-action.png" width="49%" align="top" alt="Display action: HDR on or off, resolution, refresh rate, color depth, format and range"> <img src="images/windows-settings-action.png" width="49%" align="top" alt="Windows settings action: default audio devices, power plan and screen saver">
 
-<img src="images/run-program-action.png" width="49%" align="top" alt="Run program action: name, program, arguments, and the option to hold the next actions until it finishes, with its time limit"> <img src="images/hotkey-action.png" width="49%" align="top" alt="Hotkey action: name and the keyboard shortcut to press">
+<img src="images/run-program-action.png" width="49%" align="top" alt="Run program action: name, program, arguments, and the options not to start it if it is already running and to hold the next actions until it finishes, with its time limit"> <img src="images/hotkey-action.png" width="49%" align="top" alt="Hotkey action: name and the keyboard shortcut to press">
 
 <img src="images/displays.png" alt="Displays page: each monitor with its resolution, refresh rate, color format and HDR state">
 
@@ -66,6 +69,7 @@ When each action starts, with the delay set on each one:
 <img src="images/actions-timeline.png" width="800" alt="Timeline: HDR on takes 2 s; a Run program with a 3 s delay starts at 5 s and holds the next actions until it exits at 10 s; a Hotkey with no delay starts at 10 s; a Run program with a 2 s delay starts at 12 s">
 
 - Each action waits for the previous one to finish, then for its own delay: above, Run program starts 3 s after the 2 s display change has ended. With a delay of 0, an action starts as soon as the previous one has finished.
+- **Do not start if already running** looks for the program itself, not its arguments. Leave it off for a launcher that opens a game, such as Steam with a game link: the launcher is usually open already, so the game would not start.
 - **Hold next actions until this program finishes** makes the next actions wait for that program to exit, 30 s at most by default (**Stop holding after**). The delay of the next action then counts from the end of the hold.
 - **Reference profile** inserts the actions of another profile for the same event, with their delays, as if they were written in its place. References can be nested 8 levels deep.
 - When a profile starts, the profiles still running for another application or a keyboard shortcut finish their remaining actions at once, without their delays and holds, then the new profile runs. This waits 10 s at most.
@@ -100,6 +104,14 @@ Settings, **Import from AutoActions**, then pick its `UserSettings.json`. Applic
 
 Applications are matched by full path. Choose **File name only** when the folder changes over time, such as Game Pass games or programs that update into versioned folders.
 
+### Launch button
+
+The **Launch button** column, in Applications, sets what the Launch button of the Status page runs: **None**, no button; **Program**, the application's own program; or a profile, whose Started actions run as with its keyboard shortcut. A profile with a **Run program** action can start a game through its launcher, or an emulator with the game as argument. Applications added by hand start with None; imported applications and those of earlier versions start with Program.
+
+Right-click an application on the Status page, then **Create desktop shortcut**: the shortcut runs what its Launch button runs, with the program's icon. For **Program**, it opens the program itself; for a profile, it calls `AutoTrigger.exe /launch`, so choosing another profile later needs no new shortcut. Creating it again replaces it; a shortcut of the same name that runs something else is kept, and the new one gets a number.
+
+A shortcut that runs a profile points to AutoTrigger.exe where it is now. If you move AutoTrigger, create the shortcut again: it replaces the one that no longer works.
+
 ### Keyboard shortcuts and command line
 
 A profile can have two keyboard shortcuts (Ctrl or Alt, with or without Shift, plus a key; F13 to F24 also work alone): **Keyboard shortcut (Started)** runs its **Started** actions and **Keyboard shortcut (Closed)** its **Closed** actions, from anywhere. They also work while monitoring is paused. The Status page lists them all.
@@ -111,6 +123,7 @@ A profile can have two keyboard shortcuts (Ctrl or Alt, with or without Shift, p
 | `AutoTrigger.exe /toggle` | Pause or resume |
 | `AutoTrigger.exe /started "Name"` | Run the Started actions of a profile |
 | `AutoTrigger.exe /closed "Name"` | Run the Closed actions of a profile |
+| `AutoTrigger.exe /launch <id>` | Run what the Launch button of an application runs; written by desktop shortcuts |
 
 If AutoTrigger is not running, the command starts it and returns only when AutoTrigger exits. Sent to a running AutoTrigger, it returns 0 on success and 1 on failure. An unknown command returns 2.
 
@@ -138,7 +151,7 @@ To uninstall, uncheck Start with Windows, choose Exit, then delete the AutoTrigg
 
 **Does it work with Steam, Epic Games, GOG, Game Pass or emulators?** Yes. AutoTrigger follows the game's own program, whatever launched it. For Game Pass games, choose **File name only**.
 
-**Can I run a profile without waiting for an app to start?** Yes. Give the profile a keyboard shortcut, or run `AutoTrigger.exe /started "Profile name"` or `/closed "Profile name"`, for example from a desktop shortcut. A **Run program** action in the profile can then start the program itself.
+**Can I run a profile without waiting for an app to start?** Yes. Give the profile a keyboard shortcut, choose it as the **Launch button** of an application, or run `AutoTrigger.exe /started "Profile name"` or `/closed "Profile name"`, for example from a desktop shortcut. A **Run program** action in the profile can then start the program itself.
 
 **Does it need administrator rights?** No.
 

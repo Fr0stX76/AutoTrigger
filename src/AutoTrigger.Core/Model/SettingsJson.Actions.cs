@@ -33,6 +33,7 @@ namespace AutoTrigger.Core.Model
                         Arguments = Str(json, "arguments", string.Empty),
                         HoldNext = Bool(json, "holdNext", false),
                         HideConsole = Bool(json, "hideConsole", false),
+                        SkipIfRunning = Bool(json, "skipIfRunning", false),
                         HoldCapSec = (int)Num(json, "holdCapSec", RunProgramAction.DefaultHoldCapSec),
                     };
                     break;
@@ -202,6 +203,7 @@ namespace AutoTrigger.Core.Model
                         .Set("arguments", run.Arguments ?? string.Empty)
                         .Set("holdNext", run.HoldNext)
                         .Set("hideConsole", run.HideConsole)
+                        .Set("skipIfRunning", run.SkipIfRunning)
                         .Set("holdCapSec", run.HoldCapSec);
                     break;
                 case CloseProgramAction close:

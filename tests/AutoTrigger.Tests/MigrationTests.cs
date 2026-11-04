@@ -94,6 +94,93 @@ namespace AutoTrigger.Tests
             SavedWithoutLoss(SettingsFixtures.Version140, s, "1.4.0 file");
         }
 
+        private static void SettingsFrom150()
+        {
+            var warnings = new List<string>();
+            AppSettings s = SettingsJson.Read(JsonValue.Parse(SettingsFixtures.Version150), warnings);
+            Eq(0, warnings.Count, "1.5.0 file: read without warnings: " + string.Join(" | ", warnings));
+            Eq("fr", s.Language, "1.5.0 file: language kept");
+            Eq(3, s.Applications.Count, "1.5.0 file: applications kept");
+            Check(s.Applications.All(a => a.Launch == LaunchKind.Program && a.LaunchProfileId == Guid.Empty),
+                "1.5.0 file: every application launches its program, as before");
+            SavedWithoutLoss(SettingsFixtures.Version150, s, "1.5.0 file");
+        }
+
+        private static void LaunchButton()
+        {
+            var s = NewSettings();
+            Profile eden = AddProfile(s, "Eden 60Hz");
+            AppEntry none = AddApp(s, "Tool", "C:\\Tools\\tool.exe", null);
+            none.Launch = LaunchKind.None;
+            AppEntry game = AddApp(s, "Metroid Dread", "D:\\Eden\\eden.exe", eden);
+            game.Launch = LaunchKind.Profile;
+            game.LaunchProfileId = eden.Id;
+            AppEntry program = AddApp(s, "Game", "D:\\Games\\game.exe", null);
+
+            var warnings = new List<string>();
+            AppSettings read = SettingsJson.Read(SettingsJson.Write(s), warnings);
+            Eq(0, warnings.Count, "round trip: no warnings");
+            Eq(LaunchKind.None, read.FindApplication(none.Id).Launch, "round trip: None kept");
+            Check(read.FindApplication(game.Id).Launch == LaunchKind.Profile && read.FindApplication(game.Id).LaunchProfileId == eden.Id,
+                "round trip: launch profile kept");
+            Check(read.FindApplication(program.Id).Launch == LaunchKind.Program && read.FindApplication(program.Id).LaunchProfileId == Guid.Empty,
+                "round trip: Program kept");
+
+            program.LaunchProfileId = eden.Id;
+            Eq(Guid.Empty, SettingsJson.Read(SettingsJson.Write(s), new List<string>()).FindApplication(program.Id).LaunchProfileId,
+                "a launch profile is saved only when a profile is launched");
+
+            game.LaunchProfileId = Guid.NewGuid();
+            warnings.Clear();
+            AppSettings broken = SettingsJson.Read(SettingsJson.Write(s), warnings);
+            game.LaunchProfileId = eden.Id;
+            Check(broken.FindApplication(game.Id).Launch == LaunchKind.None && broken.FindApplication(game.Id).LaunchProfileId == Guid.Empty,
+                "missing launch profile: launches nothing");
+            Check(warnings.Count == 1 && warnings[0].Contains("Metroid Dread"), "missing launch profile: one warning: " + string.Join(" | ", warnings));
+
+            string text = SettingsJson.Write(s).ToJson();
+            AppSettings odd = SettingsJson.Read(JsonValue.Parse(text.Replace("\"launch\": \"none\"", "\"launch\": \"rocket\"")), new List<string>());
+            Eq(LaunchKind.Program, odd.FindApplication(none.Id).Launch, "unknown launch: Program");
+
+            s.RemoveProfile(eden);
+            Check(game.Launch == LaunchKind.None && game.LaunchProfileId == Guid.Empty, "deleted profile: its application launches nothing");
+            Eq(Guid.Empty, game.ProfileId, "deleted profile: its application has no profile");
+            Eq(LaunchKind.Program, program.Launch, "deleted profile: other launches unchanged");
+            Check(s.FindProfile(eden.Id) == null, "deleted profile: removed");
+        }
+
+        private static void SkipIfRunning()
+        {
+            const string tool = "/tools/Overlay/Overlay.exe";
+            var procs = new FakeProcessSystem(new FakeScheduler());
+            using (var exec = new ActionExecutor(procs))
+            {
+                ActionOutcome first = exec.ExecuteAsync(new RunProgramAction { Path = tool, SkipIfRunning = true }).Result;
+                ActionOutcome second = exec.ExecuteAsync(new RunProgramAction { Path = tool, SkipIfRunning = true, HoldNext = true }).Result;
+                Eq(1, procs.Starts.Count, "started once, then left alone while it runs");
+                Check(first.Result == ActionResult.Succeeded && second.Result == ActionResult.Succeeded && second.Message.Contains("already running"),
+                    "outcomes: " + first.Message + " | " + second.Message);
+                Check(second.ProgramExited == null, "nothing to hold when it was not started");
+
+                exec.ExecuteAsync(new RunProgramAction { Path = tool }).Wait();
+                Eq(2, procs.Starts.Count, "without the switch, it starts again");
+
+                procs.Launch("/other/Overlay.exe");
+                exec.ExecuteAsync(new RunProgramAction { Path = "/tools/Second/Overlay.exe", SkipIfRunning = true }).Wait();
+                Eq(3, procs.Starts.Count, "another program with the same file name does not count");
+
+                procs.Launch("/tools/run.cmd");
+                exec.ExecuteAsync(new RunProgramAction { Path = "/tools/run.cmd", SkipIfRunning = true }).Wait();
+                Eq(4, procs.Starts.Count, "a script always starts");
+            }
+
+            var saved = (RunProgramAction)SettingsJson.ReadAction(SettingsJson.WriteAction(new RunProgramAction { Path = tool, SkipIfRunning = true }));
+            Check(saved.SkipIfRunning, "switch kept in settings.json");
+            AppSettings old = SettingsJson.Read(JsonValue.Parse(SettingsFixtures.Version150), new List<string>());
+            Check(old.Profiles.SelectMany(p => p.OnStart.Concat(p.OnClose)).OfType<RunProgramAction>().All(r => !r.SkipIfRunning),
+                "1.5.0 file: Run program actions start as before");
+        }
+
         private static void HiddenConsole()
         {
             Check(ConsoleProgram.IsConsoleImage(PeHeader(3), 512), "console subsystem: console");

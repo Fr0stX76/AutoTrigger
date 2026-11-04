@@ -56,6 +56,8 @@ namespace AutoTrigger.Core.Model
 
         public bool HideConsole { get; set; }
 
+        public bool SkipIfRunning { get; set; }
+
         public int HoldCapSec
         {
             get => _holdCapSec;

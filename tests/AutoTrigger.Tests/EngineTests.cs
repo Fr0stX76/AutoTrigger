@@ -453,6 +453,7 @@ namespace AutoTrigger.Tests
                 ("Keyboard shortcut conflicts", ShortcutConflicts),
                 ("Command line arguments", CommandArguments),
                 ("Command line through the pipe", CommandPipe),
+                ("Desktop shortcuts", DesktopShortcuts),
                 ("Display capabilities saved", CapabilitiesSaved),
                 ("Display path changed by a driver reinstall", DisplayPathChanged),
                 ("Helpers", Helpers),
@@ -460,7 +461,10 @@ namespace AutoTrigger.Tests
                 ("Settings written by 1.2.0 are kept", SettingsFrom120),
                 ("Settings written by 1.3.0 are kept", SettingsFrom130),
                 ("Settings written by 1.4.0 are kept", SettingsFrom140),
+                ("Settings written by 1.5.0 are kept", SettingsFrom150),
+                ("Launch button: saved, repaired and cleared", LaunchButton),
                 ("Run program: hidden console", HiddenConsole),
+                ("Run program: do not start if already running", SkipIfRunning),
                 ("Action names: Run program, Close program, Hotkey", ActionNames),
                 ("Reset to defaults", ResetDefaults),
                 ("Update check: versions and settings", UpdateVersions),
@@ -1737,6 +1741,7 @@ namespace AutoTrigger.Tests
             ImportResult r = AutoActionsImport.Read(json);
             Eq("First|Second|Gone", string.Join("|", r.Applications.Select(a => a.Name)), "applications in AutoActions order, name fallback");
             Eq(Guid.Empty, r.Applications[2].ProfileId, "missing profile: imported without one");
+            Check(r.Applications.All(a => a.Launch == LaunchKind.Program), "imported applications launch their program");
             Eq("alpha|Zeta HDR", string.Join("|", r.Profiles.Select(p => p.Name)), "profiles sorted by name");
             Profile zeta = r.Profiles[1];
             Check(zeta.RestartApp, "Restart app kept");

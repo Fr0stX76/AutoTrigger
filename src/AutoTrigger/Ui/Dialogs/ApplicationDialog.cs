@@ -22,6 +22,7 @@ namespace AutoTrigger.Ui
         private readonly RadioButton _byName;
         private readonly TextBlock _error = ErrorLine();
         private Guid _profileId;
+        private string _launch;
         private string _autoName = string.Empty;
         private string _iconPath = string.Empty;
 
@@ -102,6 +103,11 @@ namespace AutoTrigger.Ui
             ComboBox profile = Kit.WithScrollBar(Kit.Combo(Kit.ProfileChoices(settings), _profileId, id => _profileId = id));
             profile.HorizontalAlignment = HorizontalAlignment.Stretch;
             Body.Children.Add(Kit.Field(Texts.Profile, profile));
+
+            _launch = existing == null ? LaunchChoices.None : LaunchChoices.KeyOf(existing);
+            ComboBox launch = Kit.WithScrollBar(Kit.Combo(LaunchChoices.For(settings), _launch, key => _launch = key));
+            launch.HorizontalAlignment = HorizontalAlignment.Stretch;
+            Body.Children.Add(Kit.Field(Texts.LaunchButton, launch));
             Body.Children.Add(_error);
 
             _icon.ShowInitials(existing?.Name);
@@ -189,6 +195,7 @@ namespace AutoTrigger.Ui
             entry.Name = name;
             entry.MatchByFileName = _byName.IsChecked == true;
             entry.ProfileId = _profileId;
+            LaunchChoices.Apply(entry, _launch);
             Result = entry;
             return true;
         }

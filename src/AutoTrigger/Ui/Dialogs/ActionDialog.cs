@@ -40,6 +40,8 @@ namespace AutoTrigger.Ui
         private ToggleSwitch _hide;
         private Grid _hideRow;
         private DispatcherTimer _hideCheck;
+        private ToggleSwitch _skip;
+        private Grid _skipRow;
         private int _hideVersion;
         private ToggleSwitch _hold;
         private Grid _holdCapRow;
@@ -168,6 +170,12 @@ namespace AutoTrigger.Ui
             };
             UpdateHide();
 
+            _skip = Kit.Switch(run.SkipIfRunning, _ => { }, Texts.SkipIfRunning);
+            _skipRow = SwitchRow(Texts.SkipIfRunning, _skip);
+            _runPanel.Children.Add(_skipRow);
+            _runPath.TextChanged += (s, e) => UpdateSkip();
+            UpdateSkip();
+
             _holdCapValue = run.HoldCapSec;
             _hold = Kit.Switch(run.HoldNext, on => UpdateHold(), Texts.HoldNext);
             _runPanel.Children.Add(SwitchRow(Texts.HoldNext, _hold));
@@ -190,6 +198,12 @@ namespace AutoTrigger.Ui
                     _hideRow.Visibility = t.Result ? Visibility.Visible : Visibility.Collapsed;
             })), TaskScheduler.Default);
         }
+
+        // Only an .exe can be found among the running programs; a script or a document never would be.
+        private void UpdateSkip() =>
+            _skipRow.Visibility = ActionExecutor.ExpandPath(_runPath.Text).EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
 
         private void UpdateHold()
         {
@@ -293,6 +307,7 @@ namespace AutoTrigger.Ui
                         Path = path,
                         Arguments = _runArguments.Text.Trim(),
                         HideConsole = _hideRow.Visibility == Visibility.Visible && _hide.IsChecked == true,
+                        SkipIfRunning = _skipRow.Visibility == Visibility.Visible && _skip.IsChecked == true,
                         HoldNext = _hold.IsChecked == true,
                         HoldCapSec = _holdCapValue,
                         DelayMs = delay,

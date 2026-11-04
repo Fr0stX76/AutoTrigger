@@ -1,4 +1,7 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
+using AutoTrigger.Core.Logging;
+using AutoTrigger.Core.Model;
 
 namespace AutoTrigger
 {
@@ -29,6 +32,13 @@ namespace AutoTrigger
             const string closing = "closing";
             if (_exiting)
                 return Task.FromResult(closing);
+            if (command.Kind == CommandKind.Launch)
+            {
+                var launched = new TaskCompletionSource<string>();
+                Dispatcher.BeginInvoke(new Action(() =>
+                    LaunchApp(command.AppId, ok => launched.TrySetResult(ok ? CommandServer.Ok : CommandServer.Failed))));
+                return launched.Task;
+            }
             if (command.RunsProfile)
             {
                 var result = new TaskCompletionSource<string>();
@@ -45,6 +55,19 @@ namespace AutoTrigger
                     SetMonitoringPaused(paused.Value);
                 return CommandServer.Ok;
             }).Task;
+        }
+
+        // A desktop shortcut names the application, not a profile, so it follows what its Launch button runs now.
+        private void LaunchApp(Guid appId, Action<bool> done = null)
+        {
+            AppEntry app = _settings.FindApplication(appId);
+            if (app == null)
+            {
+                Log.Warning($"Command line: no application with id {appId:D}");
+                done?.Invoke(false);
+                return;
+            }
+            Launch(app, "desktop shortcut", done);
         }
 
         private void SetMonitoringPaused(bool paused)

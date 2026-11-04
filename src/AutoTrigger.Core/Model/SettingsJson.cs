@@ -27,6 +27,7 @@ namespace AutoTrigger.Core.Model
             ReadProfiles(root, settings, warnings);
             ReadDisplays(root, settings);
             RepairDuplicateIds(settings, warnings);
+            RepairLaunches(settings, warnings);
             return settings;
         }
 
@@ -69,7 +70,44 @@ namespace AutoTrigger.Core.Model
                     MatchByFileName = string.Equals(Str(app, "matchBy", "path"), "fileName", StringComparison.OrdinalIgnoreCase),
                     ProfileId = GuidOf(app, "profileId"),
                     Enabled = Bool(app, "enabled", true),
+                    Launch = ParseLaunch(Str(app, "launch", "program")),
+                    LaunchProfileId = GuidOf(app, "launchProfileId"),
                 });
+            }
+        }
+
+        // A launch profile that is gone launches nothing, rather than a profile the user did not choose.
+        private static void RepairLaunches(AppSettings settings, List<string> warnings)
+        {
+            foreach (AppEntry app in settings.Applications)
+            {
+                if (app.Launch != LaunchKind.Profile)
+                    continue;
+                if (app.LaunchProfileId != Guid.Empty && settings.FindProfile(app.LaunchProfileId) != null)
+                    continue;
+                app.Launch = LaunchKind.None;
+                app.LaunchProfileId = Guid.Empty;
+                warnings.Add($"Application '{app.Name}': the profile it launches does not exist; it now launches nothing.");
+            }
+        }
+
+        private static LaunchKind ParseLaunch(string text)
+        {
+            switch ((text ?? string.Empty).ToLowerInvariant())
+            {
+                case "none": return LaunchKind.None;
+                case "profile": return LaunchKind.Profile;
+                default: return LaunchKind.Program;
+            }
+        }
+
+        private static string LaunchToText(LaunchKind launch)
+        {
+            switch (launch)
+            {
+                case LaunchKind.None: return "none";
+                case LaunchKind.Profile: return "profile";
+                default: return "program";
             }
         }
 
@@ -176,7 +214,9 @@ namespace AutoTrigger.Core.Model
                     .Set("path", app.Path ?? string.Empty)
                     .Set("matchBy", app.MatchByFileName ? "fileName" : "path")
                     .Set("profileId", GuidValue(app.ProfileId))
-                    .Set("enabled", app.Enabled));
+                    .Set("enabled", app.Enabled)
+                    .Set("launch", LaunchToText(app.Launch))
+                    .Set("launchProfileId", GuidValue(app.Launch == LaunchKind.Profile ? app.LaunchProfileId : Guid.Empty)));
             }
             return list;
         }

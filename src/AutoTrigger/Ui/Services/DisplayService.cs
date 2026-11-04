@@ -213,9 +213,7 @@ namespace AutoTrigger.Ui
             }).ContinueWith(t => _ui.BeginInvoke(new Action(() =>
             {
                 _changing = false;
-                List<string> errors = t.Status == TaskStatus.RanToCompletion
-                    ? t.Result
-                    : new List<string> { t.Exception?.GetBaseException().Message ?? "unexpected error" };
+                List<string> errors = t.IsFaulted ? new List<string> { t.Exception.GetBaseException().Message } : t.Result;
                 if (errors.Count > 0)
                     onError?.Invoke(string.Join("\n", errors));
                 Changed?.Invoke();

@@ -323,9 +323,7 @@ namespace AutoTrigger.Ui
                 return;
 
             int index = Settings.Profiles.IndexOf(profile);
-            foreach (AppEntry app in Settings.Applications.Where(a => a.ProfileId == profile.Id))
-                app.ProfileId = Guid.Empty;
-            Settings.Profiles.Remove(profile);
+            Settings.RemoveProfile(profile);
             _settings.Commit();
             _selectedId = Settings.Profiles.Count == 0 ? Guid.Empty
                 : Settings.Profiles[Math.Min(index, Settings.Profiles.Count - 1)].Id;
