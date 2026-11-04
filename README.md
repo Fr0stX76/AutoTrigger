@@ -44,7 +44,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 - Update check: a link at the bottom of the window and a dot on the tray icon when a new version is out.
 - About 0.06 % of one CPU core while idle. No administrator rights. The only network access is the update check, which can be turned off.
 
-<img src="images/status.png" alt="AutoTrigger Status page: applications with their Launch button and what it runs; monitoring switch, current application and profile; HDR switch and each display with its resolution and refresh rate; keyboard shortcuts">
+<img src="images/status.png" alt="AutoTrigger Status page: applications with their Launch button and what it runs, one with its right-click menu to create a desktop shortcut; monitoring switch, current application and profile; HDR switch and each display with its resolution and refresh rate; keyboard shortcuts">
 
 <img src="images/applications.png" alt="Applications page: each game or app with its profile, what its Launch button runs, and a monitoring switch">
 
