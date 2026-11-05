@@ -20,7 +20,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 - Change settings when an app gains the focus, and set them back when you switch to another window.
 - Press a keyboard shortcut of another app when a game starts, for example to switch a mode in an overlay or a recording app.
 - Run the actions of a profile on demand, from a keyboard shortcut, a desktop shortcut or the Status page, without waiting for an app to start.
-- Start a game from the Status page through a profile, for example an emulator with the game and the right display settings.
+- Start a game from the Status page through a profile, for example through its launcher, with the right display settings first.
 
 ## Features
 
@@ -106,7 +106,7 @@ Applications are matched by full path. Choose **File name only** when the folder
 
 ### Launch button
 
-The **Launch button** column, in Applications, sets what the Launch button of the Status page runs: **None**, no button; **Program**, the application's own program; or a profile, whose Started actions run as with its keyboard shortcut. A profile with a **Run program** action can start a game through its launcher, or an emulator with the game as argument. Applications added by hand start with None; imported applications and those of earlier versions start with Program.
+The **Launch button** column, in Applications, sets what the Launch button of the Status page runs: **None**, no button; **Program**, the application's own program; or a profile, whose Started actions run as with its keyboard shortcut. A profile with a **Run program** action can start a game through its launcher. Applications added by hand start with None; imported applications and those of earlier versions start with Program.
 
 Right-click an application on the Status page, then **Create desktop shortcut**: the shortcut runs what its Launch button runs, with the program's icon. For **Program**, it opens the program itself; for a profile, it calls `AutoTrigger.exe /launch`, so choosing another profile later needs no new shortcut. Creating it again replaces it; a shortcut of the same name that runs something else is kept, and the new one gets a number.
 
@@ -149,7 +149,7 @@ To uninstall, uncheck Start with Windows, choose Exit, then delete the AutoTrigg
 
 **Is this Windows Auto HDR?** No. Windows Auto HDR adds HDR to SDR games while HDR is already on. AutoTrigger turns HDR itself on and off, per game. Both can be used together.
 
-**Does it work with Steam, Epic Games, GOG, Game Pass or emulators?** Yes. AutoTrigger follows the game's own program, whatever launched it. For Game Pass games, choose **File name only**.
+**Does it work with Steam, Epic Games, GOG or Game Pass?** Yes. AutoTrigger follows the game's own program, whatever launched it. For Game Pass games, choose **File name only**.
 
 **Can I run a profile without waiting for an app to start?** Yes. Give the profile a keyboard shortcut, choose it as the **Launch button** of an application, or run `AutoTrigger.exe /started "Profile name"` or `/closed "Profile name"`, for example from a desktop shortcut. A **Run program** action in the profile can then start the program itself.
 
