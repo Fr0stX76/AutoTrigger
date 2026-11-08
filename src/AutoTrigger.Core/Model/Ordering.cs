@@ -25,5 +25,28 @@ namespace AutoTrigger.Core.Model
             items.Insert(target, item);
             return true;
         }
+
+        // In a filtered list, an item trades places with the next one shown, past the hidden ones in between.
+        public static bool MoveAmong<T>(List<T> items, T item, int step, Func<T, bool> shown)
+        {
+            int index = items.IndexOf(item);
+            if (index < 0 || step == 0)
+                return false;
+            int direction = Math.Sign(step);
+            int left = Math.Abs(step);
+            int target = index;
+            for (int i = index + direction; i >= 0 && i < items.Count && left > 0; i += direction)
+            {
+                if (!shown(items[i]))
+                    continue;
+                target = i;
+                left--;
+            }
+            if (left > 0)
+                return false;
+            items.RemoveAt(index);
+            items.Insert(target, item);
+            return true;
+        }
     }
 }

@@ -10,7 +10,7 @@ namespace AutoTrigger.Core.Model
 
         public static Profile Duplicate(Profile source, string name)
         {
-            var copy = new Profile { Name = name, RestartApp = source.RestartApp };
+            var copy = new Profile { Name = name, Group = source.Group, RestartApp = source.RestartApp };
             foreach (EventKind kind in Events)
             {
                 foreach (ProfileAction action in source.For(kind))

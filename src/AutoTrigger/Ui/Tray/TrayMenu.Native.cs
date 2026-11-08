@@ -37,6 +37,7 @@ namespace AutoTrigger.Ui
 
             public const uint MF_CHECKED = 0x0008;
             public const uint MF_OWNERDRAW = 0x0100;
+            public const uint MF_SEPARATOR = 0x0800;
             public const uint MIM_BACKGROUND = 0x0002;
             public const uint MIM_STYLE = 0x0010;
             public const uint MNS_NOCHECK = 0x80000000;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using AutoTrigger.Core.Engine;
@@ -42,6 +43,8 @@ namespace AutoTrigger.Ui
         private DispatcherTimer _hideCheck;
         private ToggleSwitch _skip;
         private Grid _skipRow;
+        private TextBlock _skipHint;
+        private TextBlock _argumentsWarning;
         private int _hideVersion;
         private ToggleSwitch _hold;
         private Grid _holdCapRow;
@@ -153,6 +156,9 @@ namespace AutoTrigger.Ui
             _runPanel.Children.Add(Kit.Field(Texts.Program, WithRunning(_runPath, false)));
             _runArguments = Kit.TextField(run.Arguments, null, Texts.ArgumentsNone);
             _runPanel.Children.Add(Kit.Field(Texts.Arguments, _runArguments));
+            _argumentsWarning = Kit.Wrapped(Texts.SkipIfRunningArguments, 12, Res.TextSecondary);
+            _argumentsWarning.Margin = Spacing.Top(Spacing.Tight);
+            _runPanel.Children.Add(_argumentsWarning);
             _runPanel.Children.Add(Kit.Separator(Spacing.Top(Spacing.Field)));
 
             _hide = Kit.Switch(run.HideConsole, _ => { }, Texts.HideConsoleWindow);
@@ -170,10 +176,14 @@ namespace AutoTrigger.Ui
             };
             UpdateHide();
 
-            _skip = Kit.Switch(run.SkipIfRunning, _ => { }, Texts.SkipIfRunning);
+            _skip = Kit.Switch(run.SkipIfRunning, _ => UpdateSkip(), Texts.SkipIfRunning);
             _skipRow = SwitchRow(Texts.SkipIfRunning, _skip);
             _runPanel.Children.Add(_skipRow);
+            _skipHint = Kit.Wrapped(Texts.SkipIfRunningHint, 12, Res.TextSecondary);
+            _skipHint.Margin = Spacing.Top(Spacing.Tight);
+            _runPanel.Children.Add(_skipHint);
             _runPath.TextChanged += (s, e) => UpdateSkip();
+            _runArguments.TextChanged += (s, e) => UpdateSkip();
             UpdateSkip();
 
             _holdCapValue = run.HoldCapSec;
@@ -200,10 +210,19 @@ namespace AutoTrigger.Ui
         }
 
         // Only an .exe can be found among the running programs; a script or a document never would be.
-        private void UpdateSkip() =>
-            _skipRow.Visibility = ActionExecutor.ExpandPath(_runPath.Text).EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+        // While the switch is on, arguments get a warning next to them, whichever came first: a program already
+        // running never gets them.
+        private void UpdateSkip()
+        {
+            bool shown = ActionExecutor.ExpandPath(_runPath.Text).EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+            bool on = shown && _skip.IsChecked == true;
+            bool warned = on && !string.IsNullOrWhiteSpace(_runArguments.Text);
+            _skipRow.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+            _skipHint.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            _argumentsWarning.Visibility = warned ? Visibility.Visible : Visibility.Collapsed;
+            AutomationProperties.SetHelpText(_skip, on ? Texts.SkipIfRunningHint : string.Empty);
+            AutomationProperties.SetHelpText(_runArguments, warned ? Texts.SkipIfRunningArguments : string.Empty);
+        }
 
         private void UpdateHold()
         {

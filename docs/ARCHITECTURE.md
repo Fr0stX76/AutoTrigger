@@ -53,6 +53,7 @@ The window, pages and dialogs are built in C#, without XAML, on WPF UI. The whol
 - `%LOCALAPPDATA%\AutoTrigger\settings.json`, saved 500 ms after a change through a temporary file and `File.Replace`.
 - The window edits `SettingsController.Current`; the engine receives a copy 300 ms after the last change.
 - Unknown action types are kept unchanged. Older types (`audio`, `powerPlan`, `screenSaver`) are read as `windowsSettings`.
+- A profile group is only a name (`group` of each profile, `ProfileGroups`): it exists while one profile has it, and two names that differ only by case are one group. The engine never reads it. The group listed by the Profiles page is saved with the window size (`profileFilter`, `profileGroup`).
 - A file that cannot be parsed is set aside and AutoTrigger starts empty. A file that cannot be opened, or set aside, is never written over.
 - At start, only the 3 most recent copies of each kind are kept (`settings.before-import-*`, `settings.invalid-*`), and cached icons of programs no longer listed are removed.
 

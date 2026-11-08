@@ -295,7 +295,7 @@ namespace AutoTrigger
 
         private void CreateTray()
         {
-            _tray = new TrayIcon();
+            _tray = new TrayIcon(_version);
             _tray.OpenRequested += ShowWindow;
             _tray.MenuRequested += ShowMenu;
             _tray.ThemeChanged += () => ThemeController.Apply(_settings.Theme);

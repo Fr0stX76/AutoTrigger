@@ -1,6 +1,7 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using AutoTrigger.Core.Text;
+using UiButton = Wpf.Ui.Controls.Button;
 
 namespace AutoTrigger.Ui
 {
@@ -23,9 +24,9 @@ namespace AutoTrigger.Ui
 
             var cancel = FooterButton(Texts.Cancel);
             cancel.IsCancel = true;
-            var primary = FooterButton(primaryText, true);
-            primary.Click += (s, e) => Accept();
-            SetFooter(null, cancel, primary);
+            PrimaryButton = FooterButton(primaryText, true);
+            PrimaryButton.Click += (s, e) => Accept();
+            SetFooter(null, cancel, PrimaryButton);
 
             Body.SizeChanged += (s, e) =>
             {
@@ -35,6 +36,8 @@ namespace AutoTrigger.Ui
         }
 
         protected StackPanel Body { get; }
+
+        protected UiButton PrimaryButton { get; }
 
         protected void Accept()
         {

@@ -27,6 +27,7 @@ namespace AutoTrigger.Ui
         private static readonly Color BadgeColor = Color.FromArgb(0x6C, 0xCB, 0x5F);
 
         private readonly HwndSource _window;
+        private readonly string _name;
         private readonly uint _taskbarCreated;
         private readonly DispatcherTimer _retry;
         private IntPtr _normalIcon;
@@ -39,8 +40,9 @@ namespace AutoTrigger.Ui
         private bool _paused;
         private int _retries;
 
-        public TrayIcon()
+        public TrayIcon(string version)
         {
+            _name = Texts.AppName + " v" + version;
             _window = new HwndSource(new HwndSourceParameters("AutoTrigger tray")
             {
                 WindowStyle = 0,
@@ -149,7 +151,7 @@ namespace AutoTrigger.Ui
 
         private string ToolTip()
         {
-            string state = _paused ? Texts.Paused : Texts.AppName;
+            string state = _paused ? Texts.Paused(_name) : _name;
             return _update == null ? state : state + " \u00B7 " + Texts.UpdateAvailable(_update);
         }
 

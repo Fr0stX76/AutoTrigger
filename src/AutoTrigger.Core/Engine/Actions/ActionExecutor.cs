@@ -156,8 +156,11 @@ namespace AutoTrigger.Core.Engine
                 return ActionOutcome.Failure("no program set");
 
             // Chosen by the user, so not a skipped action: it is logged as a success, not as a warning.
+            // Dropped arguments are mentioned, never written: they may hold a password, and logs are attached to bug
+            // reports.
             if (action.SkipIfRunning && IsRunning(path))
-                return ActionOutcome.Success("already running, not started");
+                return ActionOutcome.Success(string.IsNullOrWhiteSpace(action.Arguments) ? "already running, not started"
+                    : "already running, not started; arguments not sent");
 
             string folder = ProgramFolder(path);
             // Checked again here: a window program must never be started hidden, even if the setting says so.

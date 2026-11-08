@@ -52,9 +52,27 @@ namespace AutoTrigger.Core.Model
             {
                 settings.WindowWidth = Math.Max(0, Math.Min(MaxWindowSize, Num(window, "width", 0)));
                 settings.WindowHeight = Math.Max(0, Math.Min(MaxWindowSize, Num(window, "height", 0)));
+                settings.ProfilesShown = ReadProfileFilter(window);
             }
             return settings;
         }
+
+        private static ProfileFilter ReadProfileFilter(JsonValue window)
+        {
+            switch (Str(window, "profileFilter", "all").ToLowerInvariant())
+            {
+                case "ungrouped":
+                    return ProfileFilter.Ungrouped;
+                case "group":
+                    ProfileFilter group = ProfileFilter.Of(Str(window, "profileGroup", string.Empty));
+                    return group.IsGroup ? group : ProfileFilter.All;
+                default:
+                    return ProfileFilter.All;
+            }
+        }
+
+        private static string ProfileFilterToText(ProfileFilter filter) =>
+            filter == null || filter.IsAll ? "all" : filter.IsUngrouped ? "ungrouped" : "group";
 
         private static void ReadApplications(JsonValue root, AppSettings settings)
         {
@@ -121,6 +139,7 @@ namespace AutoTrigger.Core.Model
                 {
                     Id = GuidOrNew(item, "id"),
                     Name = Str(item, "name", string.Empty),
+                    Group = Str(item, "group", string.Empty),
                     RestartApp = Bool(item, "restartApp", false),
                     Shortcut = ReadShortcut(item, "shortcut"),
                     ClosedShortcut = ReadShortcut(item, "closedShortcut"),
@@ -131,6 +150,7 @@ namespace AutoTrigger.Core.Model
                 ReadActions(item, "onFocusLost", profile.OnBlur, profile.Name, warnings);
                 settings.Profiles.Add(profile);
             }
+            ProfileGroups.Normalize(settings.Profiles);
         }
 
         private static void ReadDisplays(JsonValue root, AppSettings settings)
@@ -197,7 +217,9 @@ namespace AutoTrigger.Core.Model
                 .Set("updateCheckHours", settings.UpdateCheckHours)
                 .Set("window", JsonValue.NewObject()
                     .Set("width", Math.Round(settings.WindowWidth))
-                    .Set("height", Math.Round(settings.WindowHeight)))
+                    .Set("height", Math.Round(settings.WindowHeight))
+                    .Set("profileFilter", ProfileFilterToText(settings.ProfilesShown))
+                    .Set("profileGroup", settings.ProfilesShown?.IsGroup == true ? settings.ProfilesShown.Group : string.Empty))
                 .Set("applications", WriteApplications(settings.Applications))
                 .Set("profiles", WriteProfiles(settings.Profiles))
                 .Set("displays", WriteDisplays(settings.Displays));
@@ -229,6 +251,7 @@ namespace AutoTrigger.Core.Model
                 list.Add(JsonValue.NewObject()
                     .Set("id", profile.Id.ToString("D"))
                     .Set("name", profile.Name ?? string.Empty)
+                    .Set("group", ProfileGroups.Clean(profile.Group))
                     .Set("restartApp", profile.RestartApp)
                     .Set("shortcut", WriteShortcut(profile.Shortcut))
                     .Set("closedShortcut", WriteShortcut(profile.ClosedShortcut))

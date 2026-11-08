@@ -47,6 +47,11 @@ namespace AutoTrigger.Ui
         private readonly UiButton _delete;
         private readonly UiButton _up;
         private readonly UiButton _down;
+        private readonly UiButton _rename;
+        private readonly Grid _groupRow;
+        private readonly Border _groupFilterHost = new Border();
+        private List<string> _groupNames = new List<string>();
+        private ProfileFilter _filterShown;
         private Guid _selectedId;
         private UiTextBox _nameBox;
         private double _buttonRowWidth;
@@ -72,6 +77,9 @@ namespace AutoTrigger.Ui
             _up.Click += (s, e) => MoveProfile(-1);
             _down = Kit.IconButton(Kit.IconDown, Texts.MoveDown);
             _down.Click += (s, e) => MoveProfile(1);
+            _rename = Kit.IconButton(Kit.IconPencil, Texts.RenameGroup);
+            _rename.Click += (s, e) => RenameGroup();
+            _groupRow = BuildGroupRow();
 
             PageColumns.Fill(this, _listColumn,
                 new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star), MinWidth = EditorMinWidth },
@@ -96,10 +104,13 @@ namespace AutoTrigger.Ui
         {
             var left = new Grid();
             left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             left.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             left.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             left.Children.Add(BuildSearchRow());
+            Grid.SetRow(_groupRow, 1);
+            left.Children.Add(_groupRow);
 
             var scroller = new ScrollViewer
             {
@@ -110,11 +121,11 @@ namespace AutoTrigger.Ui
             Border listCard = Res.Card(scroller, Spacing.ListInset);
             listCard.Margin = Spacing.Top(Spacing.Medium);
             listCard.VerticalAlignment = VerticalAlignment.Top;
-            Grid.SetRow(listCard, 1);
+            Grid.SetRow(listCard, 2);
             left.Children.Add(listCard);
 
             WrapPanel buttons = BuildButtonRow();
-            Grid.SetRow(buttons, 2);
+            Grid.SetRow(buttons, 3);
             left.Children.Add(buttons);
             return left;
         }
@@ -171,16 +182,20 @@ namespace AutoTrigger.Ui
 
         public void OnShown()
         {
-            if (Settings.FindProfile(_selectedId) == null)
-                _selectedId = Settings.Profiles.FirstOrDefault()?.Id ?? Guid.Empty;
+            RefreshGroups();
+            SelectListed();
             RebuildList();
             ShowEditor();
         }
 
+        // The link of the Status page always shows its profile: its group is listed when the filter hides it.
         public void Select(Guid profileId)
         {
-            if (Settings.FindProfile(profileId) == null)
+            Profile profile = Settings.FindProfile(profileId);
+            if (profile == null)
                 return;
+            if (!Filter.Shows(profile))
+                ChangeFilter(ProfileFilter.Of(profile.Group));
             _selectedId = profileId;
             _search.Text = string.Empty;
             RebuildList();
@@ -193,11 +208,15 @@ namespace AutoTrigger.Ui
         private IEnumerable<Profile> Visible()
         {
             string query = SearchText;
-            return Settings.Profiles.Where(profile => query.Length == 0
-                || (profile.Name ?? string.Empty).IndexOf(query, StringComparison.CurrentCultureIgnoreCase) >= 0);
+            ProfileFilter filter = Filter;
+            return Settings.Profiles.Where(profile => filter.Shows(profile) && (query.Length == 0
+                || (profile.Name ?? string.Empty).IndexOf(query, StringComparison.CurrentCultureIgnoreCase) >= 0));
         }
 
-        private void OnSearchChanged()
+        private void OnSearchChanged() => ShowListed();
+
+        // The editor follows the list: a selected profile the list no longer shows gives way to the first one listed.
+        private void ShowListed()
         {
             RebuildList();
             if (_rows.ContainsKey(_selectedId))
@@ -209,6 +228,7 @@ namespace AutoTrigger.Ui
 
         private void RebuildList()
         {
+            RefreshGroups();
             _list.Children.Clear();
             _rows.Clear();
             foreach (Profile profile in Visible())
@@ -233,12 +253,13 @@ namespace AutoTrigger.Ui
         private void UpdateButtons()
         {
             Profile profile = _rows.ContainsKey(_selectedId) ? Settings.FindProfile(_selectedId) : null;
-            int index = profile == null ? -1 : Settings.Profiles.IndexOf(profile);
+            List<Profile> shown = Visible().ToList();
+            int index = profile == null ? -1 : shown.IndexOf(profile);
             bool ordering = SearchText.Length == 0;
             _duplicate.IsEnabled = profile != null;
             _delete.IsEnabled = profile != null;
             _up.IsEnabled = ordering && index > 0;
-            _down.IsEnabled = ordering && index >= 0 && index < Settings.Profiles.Count - 1;
+            _down.IsEnabled = ordering && index >= 0 && index < shown.Count - 1;
         }
 
         private void SelectFromList(Guid id)
@@ -266,7 +287,7 @@ namespace AutoTrigger.Ui
         private void MoveProfile(int step)
         {
             Profile profile = Settings.FindProfile(_selectedId);
-            if (profile == null || SearchText.Length > 0 || !Ordering.Move(Settings.Profiles, profile, step))
+            if (profile == null || SearchText.Length > 0 || !Ordering.MoveAmong(Settings.Profiles, profile, step, Filter.Shows))
                 return;
             _settings.Commit();
             RebuildList();
@@ -289,7 +310,8 @@ namespace AutoTrigger.Ui
             int number = 2;
             while (Settings.Profiles.Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)))
                 name = Texts.NewProfileName + " " + number++;
-            ShowNewProfile(new Profile { Name = name });
+            // In the listed group, or it would vanish from the list as soon as it is added.
+            ShowNewProfile(new Profile { Name = name, Group = Filter.IsGroup ? Filter.Group : string.Empty });
         }
 
         private void DuplicateProfile()
@@ -322,14 +344,19 @@ namespace AutoTrigger.Ui
             if (profile == null)
                 return;
 
-            int index = Settings.Profiles.IndexOf(profile);
+            _selectedId = NeighbourShown(profile);
             Settings.RemoveProfile(profile);
             _settings.Commit();
-            _selectedId = Settings.Profiles.Count == 0 ? Guid.Empty
-                : Settings.Profiles[Math.Min(index, Settings.Profiles.Count - 1)].Id;
+            RefreshGroups();
+            SelectListed();
             RebuildList();
             ShowEditor();
         }
+
+        private Guid NeighbourShown(Profile profile) => ProfileSelection.Neighbour(Visible().ToList(), profile);
+
+        // Once the filter is final: a group gone with its last profile lists every profile instead.
+        private void SelectListed() => _selectedId = ProfileSelection.Listed(Visible(), _selectedId);
 
         private void ShowEditor()
         {
@@ -353,6 +380,7 @@ namespace AutoTrigger.Ui
                 _settings.Commit();
             });
             Kit.AddPair(top, Res.Text(Texts.Name), _nameBox, 14);
+            Kit.AddPair(top, Res.Text(Texts.Group), GroupField(profile), 14);
             var restart = Kit.Switch(profile.RestartApp, on =>
             {
                 profile.RestartApp = on;

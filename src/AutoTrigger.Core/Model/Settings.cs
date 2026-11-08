@@ -67,6 +67,8 @@ namespace AutoTrigger.Core.Model
 
         public double WindowHeight { get; set; }
 
+        public ProfileFilter ProfilesShown { get; set; } = ProfileFilter.All;
+
         public List<AppEntry> Applications { get; } = new List<AppEntry>();
 
         public List<Profile> Profiles { get; } = new List<Profile>();
@@ -174,6 +176,9 @@ namespace AutoTrigger.Core.Model
         public Guid Id { get; set; } = Guid.NewGuid();
 
         public string Name { get; set; } = string.Empty;
+
+        // Only sorts the Profiles page; empty for no group.
+        public string Group { get; set; } = string.Empty;
 
         public bool RestartApp { get; set; }
 

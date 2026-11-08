@@ -6,7 +6,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 
 **An AutoActions alternative**: it imports the applications, profiles and displays of AutoActions in one step. Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory; independent rewrite, not affiliated with Codectory or NVIDIA.
 
-<img src="images/profiles.png" alt="AutoTrigger Profiles page: a profile that turns HDR on with its Started actions and off with its Closed actions, each action with its delay">
+<img src="images/profiles.png" alt="AutoTrigger Profiles page: the Group list showing one group of profiles, and a profile of that group that turns HDR on with its Started actions and off with its Closed actions, each action with its delay">
 
 ## Use cases
 
@@ -34,6 +34,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
   - **Reference profile**: reuses the actions of another profile.
 - An optional name for Run program, Close program and Hotkey actions, shown on the action card and in the log.
 - Shared profiles, a monitoring switch per application and a global pause.
+- Profile groups, so that a long list of profiles shows one group at a time.
 - **Restart app**: once the Started actions are done, the program is closed and started again with the same arguments, for games that read HDR or the resolution only when they start.
 - Keyboard shortcuts and command line to run the Started or Closed actions of a profile on demand.
 - **Launch button** on the Status page, per application: starts its program or runs the Started actions of a profile. A desktop shortcut can do the same.
@@ -50,7 +51,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 
 <img src="images/display-action.png" width="49%" align="top" alt="Display action: HDR on or off, resolution, refresh rate, color depth, format and range"> <img src="images/windows-settings-action.png" width="49%" align="top" alt="Windows settings action: default audio devices, power plan and screen saver">
 
-<img src="images/run-program-action.png" width="49%" align="top" alt="Run program action: name, program, arguments, and the options not to start it if it is already running and to hold the next actions until it finishes, with its time limit"> <img src="images/hotkey-action.png" width="49%" align="top" alt="Hotkey action: name and the keyboard shortcut to press">
+<img src="images/run-program-action.png" width="49%" align="top" alt="Run program action: name, program, Choose from running programs, no arguments, Do not start if already running turned on with its hint, and Hold next actions until this program finishes turned off"> <img src="images/hotkey-action.png" width="49%" align="top" alt="Hotkey action: name and the keyboard shortcut to press">
 
 <img src="images/displays.png" alt="Displays page: each monitor with its resolution, refresh rate, color format and HDR state">
 
@@ -69,7 +70,8 @@ When each action starts, with the delay set on each one:
 <img src="images/actions-timeline.png" width="800" alt="Timeline: HDR on takes 2 s; a Run program with a 3 s delay starts at 5 s and holds the next actions until it exits at 10 s; a Hotkey with no delay starts at 10 s; a Run program with a 2 s delay starts at 12 s">
 
 - Each action waits for the previous one to finish, then for its own delay: above, Run program starts 3 s after the 2 s display change has ended. With a delay of 0, an action starts as soon as the previous one has finished.
-- **Do not start if already running** looks for the program itself, not its arguments. Leave it off for a launcher that opens a game, such as Steam with a game link: the launcher is usually open already, so the game would not start.
+- When creating a **Run program** or **Close program** action, **Choose from running programs** is recommended for programs that stay open. Use **Browse** for programs that close by themselves, such as scripts. For Windows Store apps and programs that update into a new folder, choose the program again after an update.
+- **Do not start if already running** looks for the program itself, not its arguments. Leave it off when an argument is a command, such as a mode for a tool in the notification area or a game link for a launcher: AutoTrigger sees that the program is already open, doesn't start it, and nothing changes.
 - **Hold next actions until this program finishes** makes the next actions wait for that program to exit, 30 s at most by default (**Stop holding after**). The delay of the next action then counts from the end of the hold.
 - **Reference profile** inserts the actions of another profile for the same event, with their delays, as if they were written in its place. References can be nested 8 levels deep.
 - When a profile starts, the profiles still running for another application or a keyboard shortcut finish their remaining actions at once, without their delays and holds, then the new profile runs. This waits 10 s at most.
@@ -94,7 +96,7 @@ Download the zip from the Releases page, extract it and run AutoTrigger.exe. The
 2. **Profiles**: add actions to each event, then assign the profile to applications.
 3. Leave AutoTrigger in the tray. Double-click opens it; right-click for Open, Pause, Start with Windows and Exit.
 
-<img src="images/menu.png" alt="Tray menu: Open, Pause, Start with Windows, Exit">
+<img src="images/menu.png" alt="Tray menu: Open, Pause, Start with Windows, then Exit below a line">
 
 ### Moving from AutoActions
 
@@ -111,6 +113,10 @@ The **Launch button** column, in Applications, sets what the Launch button of th
 Right-click an application on the Status page, then **Create desktop shortcut**: the shortcut runs what its Launch button runs, with the program's icon. For **Program**, it opens the program itself; for a profile, it calls `AutoTrigger.exe /launch`, so choosing another profile later needs no new shortcut. Creating it again replaces it; a shortcut of the same name that runs something else is kept, and the new one gets a number.
 
 A shortcut that runs a profile points to AutoTrigger.exe where it is now. If you move AutoTrigger, create the shortcut again: it replaces the one that no longer works.
+
+### Profile groups
+
+Groups only sort the Profiles page: they change nothing in how profiles run. In the **Group** field of a profile, choose **New group...** to create one, or an existing group. The **Group** list above the profiles then shows all profiles, one group, or the profiles without a group; the pencil next to it renames the listed group. A profile added while a group is listed goes into that group, a group disappears with its last profile, and the list opens on the last group chosen.
 
 ### Keyboard shortcuts and command line
 

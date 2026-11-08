@@ -76,7 +76,11 @@ Delete the file when your correction is part of a release.
 | `LaunchButton`, `LaunchNone` | Applications page and application window: what the Launch button of the Status page runs. `LaunchButton` names that button, as in the Status page; `LaunchNone` is the choice with no button. |
 | `CreateDesktopShortcut`, `ShortcutFailed` | Status page, right-click menu of an application, and its error message. The shortcut is a file on the desktop: use the word of Windows for it, not the one for a keyboard shortcut. |
 | `NoDesktopFolder`, `ShortcutNamesTaken` | The `{reason}` of `ShortcutFailed`, after a colon. |
+| `Group`, `AllProfiles`, `NoGroup` | Profiles page: `Group` labels the list above the profiles, which shows all of them, one group, or those without a group, and the field of the same name in the profile. |
+| `NewGroupChoice`, `NewGroup`, `RenameGroup`, `GroupNameTaken` | `NewGroupChoice` is the last choice of the Group field and opens a window titled `NewGroup`; `RenameGroup` names the pencil button next to the Group list and titles its window. `GroupNameTaken` shows under the name when another group has it. |
 | `ProfileNone`, `ArgumentsNone` | No profile for an application; no arguments for a program. |
+| `SkipIfRunningHint` | Run program window, under `SkipIfRunning` while it is on. It names the button `ChooseRunning`: use the same words, quoted the way your language quotes a setting in `ImportAutoStart`. |
+| `SkipIfRunningArguments` | Run program window, under the arguments while `SkipIfRunning` is on: a program already running does not get them. The arguments are the unnamed subject. It names `SkipIfRunning`: use the same words, quoted as in `SkipIfRunningHint`. |
 | `...Unchanged`, `HdrChoiceOn`, `HdrChoiceOff`, `ScreenSaverChoiceOn`, `ScreenSaverChoiceOff` | Choices in an action, for the setting named by the key. In languages with genders, they agree with that setting. |
 | `DisplayHdrOn`, `DisplayHdrOffSupported`, `DisplayHdrNotSupported` | Displays page, HDR state of a display. |
 | `PrimaryShort`, `DefaultShort`, `ActiveShort` | Lower case, after the name of a display, an audio device or a power plan. |
@@ -89,4 +93,4 @@ Delete the file when your correction is part of a release.
 | `KeyboardShortcut` and `TypeHotkey` | Two different things: the shortcut that runs a profile, and the action that presses keys in another app. They need two different words. |
 | `LoopIgnored`, `MissingIgnored`, `MissingDisplayIgnored` | On an action card: the action is ignored. |
 | `ImportNotJson`, `ImportNotAutoActions` | The `{reason}` of `ImportFailed`, after a colon. |
-| `Paused` | Tooltip of the tray icon. |
+| `Paused` | Tooltip of the tray icon while monitoring is paused. `{name}` is AutoTrigger and its version, such as AutoTrigger v1.7.0. |

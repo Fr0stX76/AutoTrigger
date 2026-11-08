@@ -108,6 +108,13 @@ namespace AutoTrigger.Core.Text
         public static string NoProfileSelected => Get(nameof(NoProfileSelected));
         public static string NewProfileName => Get(nameof(NewProfileName));
         public static string RestartApp => Get(nameof(RestartApp));
+        public static string Group => Get(nameof(Group));
+        public static string AllProfiles => Get(nameof(AllProfiles));
+        public static string NoGroup => Get(nameof(NoGroup));
+        public static string NewGroupChoice => Get(nameof(NewGroupChoice));
+        public static string NewGroup => Get(nameof(NewGroup));
+        public static string RenameGroup => Get(nameof(RenameGroup));
+        public static string GroupNameTaken => Get(nameof(GroupNameTaken));
         public static string KeyboardShortcut => Get(nameof(KeyboardShortcut));
         public static string KeyboardShortcutStarted => Get(nameof(KeyboardShortcutStarted));
         public static string KeyboardShortcutClosed => Get(nameof(KeyboardShortcutClosed));
@@ -131,6 +138,8 @@ namespace AutoTrigger.Core.Text
         public static string ArgumentsNone => Get(nameof(ArgumentsNone));
         public static string HideConsoleWindow => Get(nameof(HideConsoleWindow));
         public static string SkipIfRunning => Get(nameof(SkipIfRunning));
+        public static string SkipIfRunningHint => Get(nameof(SkipIfRunningHint));
+        public static string SkipIfRunningArguments => Get(nameof(SkipIfRunningArguments));
         public static string HoldNext => Get(nameof(HoldNext));
         public static string StopHoldingAfter => Get(nameof(StopHoldingAfter));
         public static string NoProgram => Get(nameof(NoProgram));
@@ -252,7 +261,7 @@ namespace AutoTrigger.Core.Text
         public static string Open => Get(nameof(Open));
         public static string Pause => Get(nameof(Pause));
         public static string Exit => Get(nameof(Exit));
-        public static string Paused => Get(nameof(Paused));
+        public static string Paused(string name) => Fill(nameof(Paused), "name", name);
 
         public static string OpenLicenses => Get(nameof(OpenLicenses));
         public static string AboutText(string version) => Fill(nameof(AboutText), "version", version);

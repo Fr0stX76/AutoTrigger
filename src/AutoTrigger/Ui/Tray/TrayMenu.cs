@@ -67,6 +67,7 @@ namespace AutoTrigger.Ui
             _items.Add(new Item(IdOpen, Texts.Open, false, true));
             _items.Add(new Item(IdPause, Texts.Pause, paused, false));
             _items.Add(new Item(IdStartup, Texts.StartWithWindows, startWithWindows, false));
+            _items.Add(Item.Separator());
             _items.Add(new Item(IdExit, Texts.Exit, false, false));
 
             uint chosen = 0;
@@ -209,6 +210,8 @@ namespace AutoTrigger.Ui
             {
                 foreach (Item item in _items)
                 {
+                    if (item.IsSeparator)
+                        continue;
                     IntPtr old = Win32.SelectObject(dc, item.IsDefault ? _look.BoldFont : _look.Font);
                     Win32.GetTextExtentPoint32(dc, item.Text, item.Text.Length, out Win32.SIZE size);
                     Win32.SelectObject(dc, old);
@@ -225,7 +228,7 @@ namespace AutoTrigger.Ui
 
             foreach (Item item in _items)
             {
-                uint flags = Win32.MF_OWNERDRAW | (item.Checked ? Win32.MF_CHECKED : 0);
+                uint flags = Win32.MF_OWNERDRAW | (item.IsSeparator ? Win32.MF_SEPARATOR : 0) | (item.Checked ? Win32.MF_CHECKED : 0);
                 if (!Win32.AppendMenu(_menu, flags, (UIntPtr)item.Id, item.AccessibleInfo))
                     return false;
             }
@@ -246,8 +249,10 @@ namespace AutoTrigger.Ui
                         var measure = Marshal.PtrToStructure<Win32.MEASUREITEMSTRUCT>(lParam);
                         if (measure.CtlType != Win32.ODT_MENU)
                             break;
-                        measure.itemWidth = (uint)_look.ItemWidth;
-                        measure.itemHeight = (uint)_look.ItemHeight;
+                        // A separator has no command, so it is the only item with id 0.
+                        bool separator = measure.itemID == Item.SeparatorId;
+                        measure.itemWidth = separator ? 0 : (uint)_look.ItemWidth;
+                        measure.itemHeight = (uint)(separator ? _look.Scale(9) : _look.ItemHeight);
                         Marshal.StructureToPtr(measure, lParam, false);
                         handled = true;
                         return new IntPtr(1);
@@ -288,6 +293,11 @@ namespace AutoTrigger.Ui
             Item item = _items.Find(i => i.Id == draw.itemID);
             if (item == null)
                 return;
+            if (item.IsSeparator)
+            {
+                DrawSeparator(draw);
+                return;
+            }
             IntPtr dc = draw.hDC;
             int saved = Win32.SaveDC(dc);
             IntPtr pen = IntPtr.Zero;
@@ -337,6 +347,26 @@ namespace AutoTrigger.Ui
             }
         }
 
+        private void DrawSeparator(Win32.DRAWITEMSTRUCT draw)
+        {
+            IntPtr dc = draw.hDC;
+            int saved = Win32.SaveDC(dc);
+            try
+            {
+                Win32.RECT rect = draw.rcItem;
+                _ = Win32.SetDCBrushColor(dc, _look.Background);
+                _ = Win32.FillRect(dc, ref rect, Win32.GetStockObject(Win32.DC_BRUSH));
+                int y = rect.Top + (rect.Bottom - rect.Top) / 2;
+                var line = new Win32.RECT { Left = rect.Left + _look.Scale(4), Top = y, Right = rect.Right - _look.Scale(4), Bottom = y + 1 };
+                _ = Win32.SetDCBrushColor(dc, _look.Separator);
+                _ = Win32.FillRect(dc, ref line, Win32.GetStockObject(Win32.DC_BRUSH));
+            }
+            finally
+            {
+                Win32.RestoreDC(dc, saved);
+            }
+        }
+
         private void RoundCorners()
         {
             if (_menuWindow != IntPtr.Zero)
@@ -371,7 +401,7 @@ namespace AutoTrigger.Ui
             char upper = char.ToUpperInvariant(key);
             for (int i = 0; i < _items.Count; i++)
             {
-                if (char.ToUpperInvariant(_items[i].Text[0]) == upper)
+                if (!_items[i].IsSeparator && char.ToUpperInvariant(_items[i].Text[0]) == upper)
                     return new IntPtr((Win32.MNC_EXECUTE << 16) | i);
             }
             return IntPtr.Zero;
@@ -419,6 +449,8 @@ namespace AutoTrigger.Ui
 
         private sealed class Item : IDisposable
         {
+            public const uint SeparatorId = 0;
+
             public Item(uint id, string text, bool isChecked, bool isDefault)
             {
                 Id = id;
@@ -446,6 +478,10 @@ namespace AutoTrigger.Ui
             public bool IsDefault { get; }
 
             public IntPtr AccessibleInfo { get; private set; }
+
+            public bool IsSeparator => Id == SeparatorId;
+
+            public static Item Separator() => new Item(SeparatorId, string.Empty, false, false);
 
             public void Dispose()
             {
@@ -475,6 +511,7 @@ namespace AutoTrigger.Ui
                     Highlight = Win32.GetSysColor(Win32.COLOR_HIGHLIGHT);
                     SelectedText = Win32.GetSysColor(Win32.COLOR_HIGHLIGHTTEXT);
                     DisabledText = Win32.GetSysColor(Win32.COLOR_GRAYTEXT);
+                    Separator = DisabledText;
                 }
                 else if (dark)
                 {
@@ -483,6 +520,7 @@ namespace AutoTrigger.Ui
                     Highlight = Rgb(55, 55, 55);
                     SelectedText = Text;
                     DisabledText = Rgb(140, 140, 140);
+                    Separator = Rgb(70, 70, 70);
                 }
                 else
                 {
@@ -491,6 +529,7 @@ namespace AutoTrigger.Ui
                     Highlight = Rgb(230, 230, 230);
                     SelectedText = Text;
                     DisabledText = Rgb(118, 118, 118);
+                    Separator = Rgb(215, 215, 215);
                 }
                 BackgroundBrush = Win32.CreateSolidBrush(Background);
 
@@ -501,6 +540,8 @@ namespace AutoTrigger.Ui
             }
 
             public uint Background { get; }
+
+            public uint Separator { get; }
 
             public uint Text { get; }
 

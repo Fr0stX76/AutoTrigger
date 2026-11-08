@@ -161,6 +161,13 @@ namespace AutoTrigger.Tests
                 Check(first.Result == ActionResult.Succeeded && second.Result == ActionResult.Succeeded && second.Message.Contains("already running"),
                     "outcomes: " + first.Message + " | " + second.Message);
                 Check(second.ProgramExited == null, "nothing to hold when it was not started");
+                ActionOutcome withArguments = exec.ExecuteAsync(new RunProgramAction { Path = tool, Arguments = " --password hunter2 ", SkipIfRunning = true }).Result;
+                Check(withArguments.Result == ActionResult.Succeeded && withArguments.Message.EndsWith("arguments not sent", StringComparison.Ordinal),
+                    "arguments mentioned when not sent: " + withArguments.Message);
+                Check(withArguments.Message.IndexOf("hunter2", StringComparison.Ordinal) < 0, "arguments never written to the log");
+                ActionOutcome blank = exec.ExecuteAsync(new RunProgramAction { Path = tool, Arguments = "  ", SkipIfRunning = true }).Result;
+                Eq("already running, not started", blank.Message, "blank arguments are no arguments");
+                Eq(1, procs.Starts.Count, "still started once");
 
                 exec.ExecuteAsync(new RunProgramAction { Path = tool }).Wait();
                 Eq(2, procs.Starts.Count, "without the switch, it starts again");
