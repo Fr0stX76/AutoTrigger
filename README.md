@@ -1,166 +1,65 @@
 # AutoTrigger
 
-**Automatic HDR, resolution, refresh rate and audio switching per game or app on Windows 10 and 11.**
+**Automatic Windows HDR, resolution, refresh rate and audio device per game or app, on Windows 10 and 11.**
 
-AutoTrigger is a free, open-source tray app that changes Windows settings when a game or app starts, and sets them back when it closes. Turn HDR on for a game and off on the desktop, change the resolution or refresh rate, switch the default audio device, change the power plan, start or close other programs, or press a keyboard shortcut of another app.
+AutoTrigger is a free, open-source app that sits in the notification area and watches the games and apps you add. When one starts, it changes the Windows settings you chose for it. When it closes, it puts them back.
 
-**An AutoActions alternative**: it imports the applications, profiles and displays of AutoActions in one step. Inspired by [AutoActions](https://github.com/Codectory/AutoActions) by Codectory; independent rewrite, not affiliated with Codectory or NVIDIA.
+An alternative to AutoActions: it imports your AutoActions applications, profiles and displays in one step.
 
-<img src="images/profiles.png" alt="AutoTrigger Profiles page: the Group list showing one group of profiles, and a profile of that group that turns HDR on with its Started actions and off with its Closed actions, each action with its delay">
+<img src="images/status.png" width="70%" alt="AutoTrigger Status page: applications with their Launch button and what it runs, one with its right-click menu to create a desktop shortcut; monitoring switch, current application and profile; HDR switch and each display with its resolution and refresh rate; keyboard shortcuts">
 
-## Use cases
+## What it does
 
-- Turn HDR on automatically when a game starts, and off when it closes.
-- Restart a game after turning HDR on, when the game only checks HDR at launch.
-- Use a different resolution or refresh rate for games and for the desktop, DSR and DLDSR included.
-- Switch the default audio output or input per game or app, for example to a headset.
-- Use the High performance power plan while a game, a video encoder or a 3D app runs, and a power saving plan afterwards.
-- Turn the screen saver off for games played with a controller.
-- Start helper programs before a game or app and close them after it.
-- Change settings when an app gains the focus, and set them back when you switch to another window.
-- Press a keyboard shortcut of another app when a game starts, for example to switch a mode in an overlay or a recording app.
-- Run the actions of a profile on demand, from a keyboard shortcut, a desktop shortcut or the Status page, without waiting for an app to start.
-- Start a game from the Status page through a profile, for example through its launcher, with the right display settings first.
+- Turns Windows HDR on when a game starts, and off when it closes.
+- Changes the resolution and refresh rate for a game, DSR and DLDSR included, and on NVIDIA cards the color depth, format and range.
+- Switches the default audio output or input, for example to your headset.
+- Changes the power plan, and turns the screen saver off while you play with a controller.
+- Starts or closes other programs around a game, and can press a keyboard shortcut in another app, for example to switch a mode in an overlay or a recording app.
+- Restarts a game after turning HDR on, for games that only check HDR when they start.
+- Runs a profile when you want: from a keyboard shortcut, a desktop shortcut, or the Launch button of the Status page, which can also start a game through its launcher with the right display settings first.
+- Works with Steam, Epic Games, GOG, Game Pass and other Windows Store apps.
+- 37 languages, light and dark themes, and an update check you can turn off.
 
-## Features
+## Get started
 
-- Four events per application: Started, Closed, Gained focus, Lost focus.
-- Actions, each with its own delay:
-  - **Display**: HDR, resolution, refresh rate and, on NVIDIA, color depth, format and range. Works with DSR and DLDSR.
-  - **Windows settings**: default audio output and input devices, power plan, and screen saver on or off.
-  - **Run program**, with options to hold the next actions until it finishes, to hide the console window of command-line tools and scripts, and not to start a program that is already running.
-  - **Close program**: asks a program to close, and can force it after a delay.
-  - **Hotkey**: presses a keyboard shortcut of another app.
-  - **Reference profile**: reuses the actions of another profile.
-- An optional name for Run program, Close program and Hotkey actions, shown on the action card and in the log.
-- Shared profiles, a monitoring switch per application and a global pause.
-- Profile groups, so that a long list of profiles shows one group at a time.
-- An icon of your choice for an application, imported from a picture or another program, also used by its desktop shortcut.
-- **Restart app**: once the Started actions are done, the program is closed and started again with the same arguments, for games that read HDR or the resolution only when they start.
-- Keyboard shortcuts and command line to run the Started or Closed actions of a profile on demand.
-- **Launch button** on the Status page, per application: starts its program or runs the Started actions of a profile. A desktop shortcut can do the same.
-- Windows Store apps, focus included.
-- Light and dark themes, following Windows by default.
-- 37 languages, following the Windows display language by default, see [Languages](#languages).
-- Import from AutoActions.
-- Update check: a link at the bottom of the window and a dot on the tray icon when a new version is out.
-- About 0.06 % of one CPU core while idle. No administrator rights. The only network access is the update check, which can be turned off.
+1. Download the zip from the [Releases page](https://github.com/Fr0stX76/AutoTrigger/releases), extract it and run AutoTrigger.exe. Nothing to install: it runs on .NET Framework 4.8, which is part of Windows. The app isn't signed, so if SmartScreen warns, choose **More info**, then **Run anyway**.
+2. In **Profiles**, click **Add**. Under **Started**, add a **Display** action with HDR **On**. Under **Closed**, add one with HDR **Off**.
+3. Start your game. In **Applications**, click **Add**, use **Choose from running programs** to pick the game, and select your profile.
 
-<img src="images/status.png" alt="AutoTrigger Status page: applications with their Launch button and what it runs, one with its right-click menu to create a desktop shortcut; monitoring switch, current application and profile; HDR switch and each display with its resolution and refresh rate; keyboard shortcuts">
+Next time the game starts, HDR turns on by itself, and it turns off when you quit.
 
-<img src="images/applications.png" alt="Applications page: each game or app with its profile, what its Launch button runs, and a monitoring switch">
+AutoTrigger stays in the notification area: double-click its icon to open the window, right-click it for the menu. The icon gets a dot when an update is out, and changes while monitoring is paused.
+
+<img src="images/menu.png" width="200" align="top" alt="Tray menu: Open, Pause, Start with Windows, then Exit below a line"> <img src="images/tray-update.png" width="208" align="top" alt="Tray icon: normal, update available, paused, paused with an update available">
+
+## Good to know
+
+- **Actions run one after the other.** Each one waits for the previous one to finish, then for its own delay. With a delay of 0, it starts right away.
+- When creating a **Run program** or **Close program** action, **Choose from running programs** is recommended for programs that stay open. Use **Browse** for programs that close by themselves, such as scripts. For Windows Store apps and programs that update into a new folder, choose the program again after an update.
+- **Do not start if already running** looks for the program itself, not its arguments. Leave it off when an argument is a command, such as a mode for a tool in the notification area or a game link for a launcher: AutoTrigger sees that the program is already open, doesn't start it, and nothing changes.
+- An application is recognized by its full path. For Game Pass games and programs that move to a new folder when they update, choose **File name only**.
+
+## Screenshots
+
+<img src="images/profiles.png" width="49%" align="top" alt="Profiles page: the Group list showing one group of profiles, and a profile of that group that turns HDR on with its Started actions and off with its Closed actions, each action with its delay"> <img src="images/applications.png" width="49%" align="top" alt="Applications page: each game or app with its profile, what its Launch button runs, and a monitoring switch">
+
+<img src="images/displays.png" width="49%" align="top" alt="Displays page: each monitor with its resolution, refresh rate, color format and HDR state"> <img src="images/settings.png" width="49%" align="top" alt="Settings page: General with start with Windows, tray, theme, language and update check; Advanced with focus time, start detection, log and import from AutoActions">
 
 <img src="images/display-action.png" width="49%" align="top" alt="Display action: HDR on or off, resolution, refresh rate, color depth, format and range"> <img src="images/windows-settings-action.png" width="49%" align="top" alt="Windows settings action: default audio devices, power plan and screen saver">
 
 <img src="images/run-program-action.png" width="49%" align="top" alt="Run program action: name, program, Choose from running programs, no arguments, Do not start if already running turned on with its hint, and Hold next actions until this program finishes turned off"> <img src="images/hotkey-action.png" width="49%" align="top" alt="Hotkey action: name and the keyboard shortcut to press">
 
-<img src="images/displays.png" alt="Displays page: each monitor with its resolution, refresh rate, color format and HDR state">
-
-<img src="images/settings.png" alt="Settings page: General with start with Windows, tray, theme, language and update check; Advanced with focus time, start detection, log and import from AutoActions">
-
-## How actions run
-
-<!-- Diagram sources are in docs/diagrams, rendered to images/ with the Mermaid CLI (mmdc), transparent background, scale 2. -->
-
-An event of an application, a keyboard shortcut or a command picks a profile; the actions of that event then run one after the other.
-
-<img src="images/actions-flow.png" width="516" alt="How actions run: an application event (Started, Closed, Gained focus, Lost focus) or a keyboard shortcut or command line picks a profile; its actions run in order, with a delay before each one, a referenced profile inserted in place, and a Run program action that holds the next actions until it exits">
-
-When each action starts, with the delay set on each one:
-
-<img src="images/actions-timeline.png" width="800" alt="Timeline: HDR on takes 2 s; a Run program with a 3 s delay starts at 5 s and holds the next actions until it exits at 10 s; a Hotkey with no delay starts at 10 s; a Run program with a 2 s delay starts at 12 s">
-
-- Each action waits for the previous one to finish, then for its own delay: above, Run program starts 3 s after the 2 s display change has ended. With a delay of 0, an action starts as soon as the previous one has finished.
-- When creating a **Run program** or **Close program** action, **Choose from running programs** is recommended for programs that stay open. Use **Browse** for programs that close by themselves, such as scripts. For Windows Store apps and programs that update into a new folder, choose the program again after an update.
-- **Do not start if already running** looks for the program itself, not its arguments. Leave it off when an argument is a command, such as a mode for a tool in the notification area or a game link for a launcher: AutoTrigger sees that the program is already open, doesn't start it, and nothing changes.
-- **Hold next actions until this program finishes** makes the next actions wait for that program to exit, 30 s at most by default (**Stop holding after**). The delay of the next action then counts from the end of the hold.
-- **Reference profile** inserts the actions of another profile for the same event, with their delays, as if they were written in its place. References can be nested 8 levels deep.
-- When a profile starts, the profiles still running for another application or a keyboard shortcut finish their remaining actions at once, without their delays and holds, then the new profile runs. This waits 10 s at most.
-
-## Languages
-
-AutoTrigger uses the Windows display language, or the language chosen in **Settings**. It is available in English, French and 35 other languages: Basque, Bulgarian, Catalan, Chinese (Simplified), Chinese (Traditional), Croatian, Czech, Danish, Dutch, Estonian, Finnish, Galician, German, Greek, Hungarian, Indonesian, Italian, Japanese, Korean, Latvian, Lithuanian, Norwegian, Polish, Portuguese (Brazil), Romanian, Russian, Serbian (Latin), Slovak, Slovenian, Spanish, Swedish, Thai, Turkish, Ukrainian and Vietnamese.
-
-English is the reference and the author reviewed French. The other languages were translated with AI, using the words of Windows in each language, and have not been reviewed by native speakers yet. Corrections are welcome and need no code: see [Translating AutoTrigger](docs/TRANSLATING.md).
-
-## Requirements
-
-- Windows 10 22H2 or Windows 11, 64-bit.
-- .NET Framework 4.8, included in Windows 10 22H2 and Windows 11.
-- An NVIDIA GPU for color depth, format and range.
-
-## Usage
-
-Download the zip from the Releases page, extract it and run AutoTrigger.exe. The program is not signed: if SmartScreen warns, choose **More info**, then **Run anyway**.
-
-1. **Applications**: add the programs to follow.
-2. **Profiles**: add actions to each event, then assign the profile to applications.
-3. Leave AutoTrigger in the tray. Double-click opens it; right-click for Open, Pause, Start with Windows and Exit.
-
-<img src="images/menu.png" alt="Tray menu: Open, Pause, Start with Windows, then Exit below a line">
-
-### Moving from AutoActions
-
-Settings, **Import from AutoActions**, then pick its `UserSettings.json`. Applications, profiles and displays are replaced; the previous AutoTrigger settings are backed up and AutoActions' file is not changed. The summary lists the programs the imported profiles will start. Quit AutoActions afterwards, or every action runs twice. AutoActions shortcuts and the default profile are not imported; an action type AutoTrigger does not know is kept as an unknown action, which does nothing.
-
-### Full path or file name
-
-Applications are matched by full path. Choose **File name only** when the folder changes over time, such as Game Pass games or programs that update into versioned folders.
-
-### Launch button
-
-The **Launch button** column, in Applications, sets what the Launch button of the Status page runs: **None**, no button; **Program**, the application's own program; or a profile, whose Started actions run as with its keyboard shortcut. A profile with a **Run program** action can start a game through its launcher. Applications added by hand start with None; imported applications and those of earlier versions start with Program.
-
-Right-click an application on the Status page, then **Create desktop shortcut**: the shortcut runs what its Launch button runs, with the program's icon. For **Program**, it opens the program itself; for a profile, it calls `AutoTrigger.exe /launch`, so choosing another profile later needs no new shortcut. Creating it again replaces it; a shortcut of the same name that runs something else is kept, and the new one gets a number.
-
-A shortcut that runs a profile points to AutoTrigger.exe where it is now. If you move AutoTrigger, create the shortcut again: it replaces the one that no longer works.
-
-An application shows the icon of its program. For another one, such as when the game's program has no icon but its launcher has, choose **Import...** under **Icon** in the application's window: a PNG, JPEG, BMP or ICO picture, or a program, whose icon is taken. AutoTrigger keeps its own copy, so the original can be deleted. **Remove** goes back to the program's icon. A shortcut already on the desktop keeps its old icon until it is created again.
-
-### Profile groups
-
-Groups only sort the Profiles page: they change nothing in how profiles run. In the **Group** field of a profile, choose **New group...** to create one, or an existing group. The **Group** list above the profiles then shows all profiles, one group, or the profiles without a group; the pencil next to it renames the listed group. A profile added while a group is listed goes into that group, a group disappears with its last profile, and the list opens on the last group chosen.
-
-### Keyboard shortcuts and command line
-
-A profile can have two keyboard shortcuts (Ctrl or Alt, with or without Shift, plus a key; F13 to F24 also work alone): **Keyboard shortcut (Started)** runs its **Started** actions and **Keyboard shortcut (Closed)** its **Closed** actions, from anywhere. They also work while monitoring is paused. The Status page lists them all.
-
-| Command | Result |
-| --- | --- |
-| `AutoTrigger.exe /pause` | Pause monitoring |
-| `AutoTrigger.exe /resume` | Resume monitoring |
-| `AutoTrigger.exe /toggle` | Pause or resume |
-| `AutoTrigger.exe /started "Name"` | Run the Started actions of a profile |
-| `AutoTrigger.exe /closed "Name"` | Run the Closed actions of a profile |
-| `AutoTrigger.exe /launch <id>` | Run what the Launch button of an application runs; written by desktop shortcuts |
-
-If AutoTrigger is not running, the command starts it and returns only when AutoTrigger exits. Sent to a running AutoTrigger, it returns 0 on success and 1 on failure. An unknown command returns 2.
-
-### Hotkey limits
-
-- One keyboard shortcut per action.
-- The window in front receives the keys too.
-- Windows blocks keys sent to a window run as administrator; the log names that program.
-- If keys are still held down, such as the keyboard shortcut that ran the profile, the action waits up to 1 s for their release.
-- No confirmation that the other program reacted; some games and anti-cheat systems ignore simulated keys.
-
-### Log and uninstall
-
-To report a problem, set **Log level** to **Detailed** in Settings, reproduce it, then attach `AutoTrigger.log` (**Open log**). Your user folder appears as `%USERPROFILE%`.
-
-To uninstall, uncheck Start with Windows, choose Exit, then delete the AutoTrigger folder and `%LOCALAPPDATA%\AutoTrigger`.
-
 ## FAQ
 
-**How do I turn HDR on automatically for one game?** Add the game in **Applications**, give it a profile with a **Display** action set to HDR on in **Started** and HDR off in **Closed**.
+**How do I turn HDR on automatically for one game?** See [Get started](#get-started): a profile with HDR on in **Started** and off in **Closed**, given to the game.
 
-**My game does not see that HDR is on.** Some games read the display settings only when they start. Turn on **Restart app** in the profile: once its Started actions are done, AutoTrigger closes the game and starts it again with the same arguments, without running the Closed or Started actions again. It is ignored when the profile runs from a keyboard shortcut or the command line, and a program run as administrator cannot be restarted.
-
-**Is this Windows Auto HDR?** No. Windows Auto HDR adds HDR to SDR games while HDR is already on. AutoTrigger turns HDR itself on and off, per game. Both can be used together.
+**My game doesn't see that HDR is on.** Some games read the display settings only when they start. Turn on **Restart app** in the profile: once its **Started** actions are done, AutoTrigger closes the game and starts it again.
 
 **Does it work with Steam, Epic Games, GOG or Game Pass?** Yes. AutoTrigger follows the game's own program, whatever launched it. For Game Pass games, choose **File name only**.
 
-**Can I run a profile without waiting for an app to start?** Yes. Give the profile a keyboard shortcut, choose it as the **Launch button** of an application, or run `AutoTrigger.exe /started "Profile name"` or `/closed "Profile name"`, for example from a desktop shortcut. A **Run program** action in the profile can then start the program itself.
+**Can I change settings without starting a game?** Yes. Give the profile a keyboard shortcut, make it the **Launch button** of an application, or create a desktop shortcut. See [Advanced features](#advanced-features).
+
+**My desktop shortcut has no icon.** Import one under **Icon** in the game's window, then create the shortcut again.
 
 **Does it need administrator rights?** No.
 
@@ -168,34 +67,58 @@ To uninstall, uncheck Start with Windows, choose Exit, then delete the AutoTrigg
 
 **Can I keep my AutoActions setup?** Yes, see [Moving from AutoActions](#moving-from-autoactions).
 
-## Build
+## Advanced features
 
-Visual Studio 2026 with the **.NET desktop development** workload, from a Developer Command Prompt:
+- **Four events** per application: Started, Closed, Gained focus and Lost focus, to change settings only while its window is in front.
+- **Six action types**, each with its own delay: Display, Windows settings, Run program, Close program, Hotkey, and Reference profile to reuse the actions of another profile.
+- **Hold next actions** until a program finishes, for example a script that has to end first.
+- **Keyboard shortcuts and command line** (`/started`, `/closed`, `/pause`...) to run a profile from anywhere.
+- **Launch button and desktop shortcut** for each application, running its program or a profile.
+- **Shared profiles**, a monitoring switch per application, and a global pause.
+- **Profile groups** for a long list of profiles, and **imported icons** for applications.
 
-```
-msbuild AutoTrigger.sln -restore -p:Configuration=Release
-```
+The full guide, with how AutoTrigger works under the hood and how to build it: [docs/ADVANCED.md](docs/ADVANCED.md).
 
-The program is written to `out\Release`. [WPF UI](https://github.com/lepoco/wpfui) 4.3.0 is downloaded from NuGet on the first build. The tests are written to `out\Tests`: run `AutoTrigger.Tests.exe`, exit code 0 means they all passed. GitHub builds and tests every change. How the code is organized: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## Lightweight and private
 
-## How it works
+- No administrator rights.
+- About 0.06 % of one CPU core while idle.
+- Portable: one folder, nothing to install. Your settings are one file, `%LOCALAPPDATA%\AutoTrigger\settings.json`.
+- The only network access is the update check: one request to GitHub to read the latest version number. Nothing is downloaded or sent, and you can turn it off in **Settings**.
+- Open source, under the MIT license.
 
-- **Starts**: the process list is read every 500 ms with `NtQuerySystemInformation`. **Closes**: signaled by Windows. **Focus**: a `WinEvent` hook; a change must last 300 ms. For Windows Store apps, the app inside the `ApplicationFrameHost` frame is used.
-- **Display**: resolution with `SetDisplayConfig` and GPU scaling, HDR with `DisplayConfigSetDeviceInfo`, NVIDIA color with NVAPI. Only what differs is changed, and a failed step undoes the previous ones.
-- **Windows settings** sets the default audio devices and uses `PowerSetActiveScheme` for the power plan. An audio device is saved by its Windows id; when a driver update or another USB port gives it a new one, the connected device with the same name is used, if no other device has that name. With two identical devices, only one of them connected, the connected one is used. The screen saver is changed for the current session only, and turned back on when AutoTrigger exits. **Hotkey** uses `SendInput`.
-- Keyboard shortcuts use `RegisterHotKey`. The command line talks to the running AutoTrigger through a local named pipe open to the current user only.
-- Settings are in `%LOCALAPPDATA%\AutoTrigger\settings.json`, written atomically, and imported icons in its `custom-icons` folder. Start with Windows uses the current user's `Run` key.
-- **Close program** asks the program's windows to close, its hidden ones when none is visible, as `taskkill` does without `/F`. With **Force**, it ends the program once the delay is over.
-- **Update check**: one HTTPS request to the GitHub API, shortly after start and then every 4 h by default, reads the number of the latest release. Nothing is downloaded, installed or sent. With **Check for updates** off in Settings, AutoTrigger doesn't use the network.
+## Moving from AutoActions
 
-  <img src="images/tray-update.png" width="208" alt="Tray icon: normal, update available, paused, paused with an update available">
+In **Settings**, choose **Import from AutoActions**, then pick its `UserSettings.json`. Your applications, profiles and displays are replaced; AutoTrigger backs up its previous settings and doesn't change AutoActions' file. Quit AutoActions afterwards, or every action runs twice. More in [the guide](docs/ADVANCED.md#moving-from-autoactions).
 
-## AI disclosure
+## Languages
 
-This app was built with the help of AI (Claude, by Anthropic) under the direction of the author. The translations other than English and French were made with AI, see [Languages](#languages).
+AutoTrigger follows the Windows display language, or the one chosen in **Settings**. It comes in English, French and 35 other languages: Basque, Bulgarian, Catalan, Chinese (Simplified), Chinese (Traditional), Croatian, Czech, Danish, Dutch, Estonian, Finnish, Galician, German, Greek, Hungarian, Indonesian, Italian, Japanese, Korean, Latvian, Lithuanian, Norwegian, Polish, Portuguese (Brazil), Romanian, Russian, Serbian (Latin), Slovak, Slovenian, Spanish, Swedish, Thai, Turkish, Ukrainian and Vietnamese.
+
+English is the reference and the author reviewed French. The other languages were translated with AI, using the words of Windows in each language, and haven't been reviewed by native speakers yet. Corrections are welcome and need no code: see [Translating AutoTrigger](docs/TRANSLATING.md).
+
+## Requirements
+
+- Windows 10 22H2 or Windows 11, 64-bit.
+- .NET Framework 4.8, part of Windows 10 22H2 and Windows 11.
+- An NVIDIA graphics card for color depth, format and range. Everything else works with any graphics card.
+
+## Report a problem or uninstall
+
+To report a problem, set **Log level** to **Detailed** in **Settings**, make the problem happen again, then attach `AutoTrigger.log` (**Open log**) to your issue. Your user folder appears in it as `%USERPROFILE%`.
+
+To uninstall, uncheck **Start with Windows**, choose **Exit**, then delete the AutoTrigger folder and `%LOCALAPPDATA%\AutoTrigger`.
+
+## Thanks to AutoActions
+
+Thanks to [AutoActions](https://github.com/Codectory/AutoActions) by Codectory, the app that inspired this one. AutoTrigger is a separate program, written from scratch, with no AutoActions code. It reads AutoActions' settings file only to import it, and is not affiliated with Codectory.
 
 ## License
 
 MIT, see [LICENSE](LICENSE). WPF UI and the .NET libraries are distributed under their MIT licenses and the NVAPI definitions under NVIDIA's MIT license, see [NOTICE.txt](NOTICE.txt).
 
-NVIDIA is a trademark or registered trademark of NVIDIA Corporation.
+NVIDIA is a trademark or registered trademark of NVIDIA Corporation. AutoTrigger is not affiliated with NVIDIA.
+
+## AI disclosure
+
+This app was built with the help of AI (Claude, by Anthropic) under the direction of the author. The translations other than English and French were made with AI, see [Languages](#languages).
