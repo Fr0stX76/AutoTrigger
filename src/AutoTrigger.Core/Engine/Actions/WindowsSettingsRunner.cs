@@ -50,20 +50,22 @@ namespace AutoTrigger.Core.Engine
             string kind = playback ? "output" : "input";
             try
             {
-                AudioDevice device = _audio.GetDevices(playback).FirstOrDefault(d => d.Matches(stored));
+                AudioDevice device = AudioDevice.Find(_audio.GetDevices(playback), stored, storedName);
                 if (device == null)
                 {
                     string name = string.IsNullOrWhiteSpace(storedName) ? stored : storedName;
                     result.Failures.Add($"{kind} device {name} is not connected");
                     return;
                 }
+                // Said in the log, so that a device found by its name is not mistaken for the one saved.
+                string how = device.Matches(stored) ? string.Empty : " (found by name, the saved device is gone)";
                 if (string.Equals(_audio.GetDefaultId(playback), device.Id, StringComparison.OrdinalIgnoreCase))
                 {
-                    result.Done.Add($"{device.Name} already the default {kind} device");
+                    result.Done.Add($"{device.Name} already the default {kind} device{how}");
                     return;
                 }
                 _audio.SetDefault(device);
-                result.Done.Add($"{device.Name} is now the default {kind} device");
+                result.Done.Add($"{device.Name} is now the default {kind} device{how}");
             }
             catch (Exception ex)
             {

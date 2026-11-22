@@ -35,6 +35,7 @@ AutoTrigger is a free, open-source tray app that changes Windows settings when a
 - An optional name for Run program, Close program and Hotkey actions, shown on the action card and in the log.
 - Shared profiles, a monitoring switch per application and a global pause.
 - Profile groups, so that a long list of profiles shows one group at a time.
+- An icon of your choice for an application, imported from a picture or another program, also used by its desktop shortcut.
 - **Restart app**: once the Started actions are done, the program is closed and started again with the same arguments, for games that read HDR or the resolution only when they start.
 - Keyboard shortcuts and command line to run the Started or Closed actions of a profile on demand.
 - **Launch button** on the Status page, per application: starts its program or runs the Started actions of a profile. A desktop shortcut can do the same.
@@ -114,6 +115,8 @@ Right-click an application on the Status page, then **Create desktop shortcut**:
 
 A shortcut that runs a profile points to AutoTrigger.exe where it is now. If you move AutoTrigger, create the shortcut again: it replaces the one that no longer works.
 
+An application shows the icon of its program. For another one, such as when the game's program has no icon but its launcher has, choose **Import...** under **Icon** in the application's window: a PNG, JPEG, BMP or ICO picture, or a program, whose icon is taken. AutoTrigger keeps its own copy, so the original can be deleted. **Remove** goes back to the program's icon. A shortcut already on the desktop keeps its old icon until it is created again.
+
 ### Profile groups
 
 Groups only sort the Profiles page: they change nothing in how profiles run. In the **Group** field of a profile, choose **New group...** to create one, or an existing group. The **Group** list above the profiles then shows all profiles, one group, or the profiles without a group; the pencil next to it renames the listed group. A profile added while a group is listed goes into that group, a group disappears with its last profile, and the list opens on the last group chosen.
@@ -179,9 +182,9 @@ The program is written to `out\Release`. [WPF UI](https://github.com/lepoco/wpfu
 
 - **Starts**: the process list is read every 500 ms with `NtQuerySystemInformation`. **Closes**: signaled by Windows. **Focus**: a `WinEvent` hook; a change must last 300 ms. For Windows Store apps, the app inside the `ApplicationFrameHost` frame is used.
 - **Display**: resolution with `SetDisplayConfig` and GPU scaling, HDR with `DisplayConfigSetDeviceInfo`, NVIDIA color with NVAPI. Only what differs is changed, and a failed step undoes the previous ones.
-- **Windows settings** sets the default audio devices and uses `PowerSetActiveScheme` for the power plan. The screen saver is changed for the current session only, and turned back on when AutoTrigger exits. **Hotkey** uses `SendInput`.
+- **Windows settings** sets the default audio devices and uses `PowerSetActiveScheme` for the power plan. An audio device is saved by its Windows id; when a driver update or another USB port gives it a new one, the connected device with the same name is used, if no other device has that name. With two identical devices, only one of them connected, the connected one is used. The screen saver is changed for the current session only, and turned back on when AutoTrigger exits. **Hotkey** uses `SendInput`.
 - Keyboard shortcuts use `RegisterHotKey`. The command line talks to the running AutoTrigger through a local named pipe open to the current user only.
-- Settings are in `%LOCALAPPDATA%\AutoTrigger\settings.json`, written atomically. Start with Windows uses the current user's `Run` key.
+- Settings are in `%LOCALAPPDATA%\AutoTrigger\settings.json`, written atomically, and imported icons in its `custom-icons` folder. Start with Windows uses the current user's `Run` key.
 - **Close program** asks the program's windows to close, its hidden ones when none is visible, as `taskkill` does without `/F`. With **Force**, it ends the program once the delay is over.
 - **Update check**: one HTTPS request to the GitHub API, shortly after start and then every 4 h by default, reads the number of the latest release. Nothing is downloaded, installed or sent. With **Check for updates** off in Settings, AutoTrigger doesn't use the network.
 

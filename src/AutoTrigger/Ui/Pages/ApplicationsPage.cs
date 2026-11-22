@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,6 +9,7 @@ using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Threading;
 using AutoTrigger.Core.Engine;
+using AutoTrigger.Core.Logging;
 using AutoTrigger.Core.Model;
 using AutoTrigger.Core.Text;
 using UiButton = Wpf.Ui.Controls.Button;
@@ -296,7 +298,7 @@ namespace AutoTrigger.Ui
             _rowGrids.Add(grid);
             var icon = new AppIconBox(36, 6);
             icon.ShowInitials(app.Name);
-            _icons.Get(app.Path, icon.ShowImage);
+            _icons.Get(app, icon.ShowImage);
             grid.Children.Add(icon);
 
             TextBlock name = Res.Text(DisplayName(app));
@@ -446,6 +448,15 @@ namespace AutoTrigger.Ui
                 return;
             int index = Settings.Applications.IndexOf(app);
             Settings.Applications.Remove(app);
+            try
+            {
+                _icons.Custom.Delete(app.Id);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                // Removed at the next start instead, with the other icons no application uses.
+                Log.Detailed($"{app.Name}: imported icon not removed: {ex.Message}");
+            }
             _selectedId = Settings.Applications.Count == 0 ? Guid.Empty
                 : Settings.Applications[Math.Min(index, Settings.Applications.Count - 1)].Id;
             _settings.Commit();

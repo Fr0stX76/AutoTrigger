@@ -74,6 +74,7 @@ namespace AutoTrigger.Core.Text
         public static string SortDescending => Get(nameof(SortDescending));
         public static string FileTypePrograms => Get(nameof(FileTypePrograms));
         public static string FileTypeAllFiles => Get(nameof(FileTypeAllFiles));
+        public static string FileTypeIcons => Get(nameof(FileTypeIcons));
 
         public static string EventStarted => Get(nameof(EventStarted));
         public static string EventClosed => Get(nameof(EventClosed));
@@ -94,6 +95,11 @@ namespace AutoTrigger.Core.Text
         public static string ErrorChooseExe => Get(nameof(ErrorChooseExe));
         public static string DisplayName => Get(nameof(DisplayName));
         public static string NameFromProgram => Get(nameof(NameFromProgram));
+        public static string ImportIcon => Get(nameof(ImportIcon));
+        public static string RemoveIcon => Get(nameof(RemoveIcon));
+        public static string IconShortcutHint => Get(nameof(IconShortcutHint));
+        public static string IconUnusable => Get(nameof(IconUnusable));
+        public static string IconSaveFailed(string reason) => Fill(nameof(IconSaveFailed), "reason", reason);
         public static string RecognizeBy => Get(nameof(RecognizeBy));
         public static string FullPath => Get(nameof(FullPath));
         public static string FileNameOnly => Get(nameof(FileNameOnly));

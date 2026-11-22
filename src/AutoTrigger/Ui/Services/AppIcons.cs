@@ -36,11 +36,14 @@ namespace AutoTrigger.Ui
             new Dictionary<string, List<Action<ImageSource>>>(StringComparer.OrdinalIgnoreCase);
         private readonly BlockingCollection<string> _queue = new BlockingCollection<string>();
         private readonly Thread _worker;
+        private readonly Dictionary<string, KeyValuePair<DateTime, ImageSource>> _imported =
+            new Dictionary<string, KeyValuePair<DateTime, ImageSource>>(StringComparer.OrdinalIgnoreCase);
         private ImageSource _generic;
         private bool _genericTried;
 
-        public AppIcons(string cacheDir, Dispatcher ui, IEnumerable<string> keptPrograms)
+        public AppIcons(string cacheDir, Dispatcher ui, IEnumerable<string> keptPrograms, CustomIconStore custom)
         {
+            Custom = custom;
             _cacheDir = cacheDir;
             _ui = ui;
             _kept = new HashSet<string>(keptPrograms.Select(p => (p ?? string.Empty).Trim()).Where(p => p.Length > 0).Select(CacheFile),
@@ -49,6 +52,19 @@ namespace AutoTrigger.Ui
             // Shell icon extraction needs an STA thread and can be slow, so it runs off the UI thread.
             _worker.SetApartmentState(ApartmentState.STA);
             _worker.Start();
+        }
+
+        public CustomIconStore Custom { get; }
+
+        // The icon imported for the application, else its program's.
+        public void Get(AppEntry app, Action<ImageSource> apply)
+        {
+            string imported = Custom.Existing(app);
+            ImageSource icon = imported != null ? Imported(imported) : null;
+            if (icon != null)
+                apply(icon);
+            else
+                Get(app.Path, apply);
         }
 
         public void Get(string exePath, Action<ImageSource> apply)
@@ -166,7 +182,50 @@ namespace AutoTrigger.Ui
             }));
         }
 
-        private static byte[] Extract(string exePath)
+        // Kept in memory, and read again only if the file changes.
+        private ImageSource Imported(string file)
+        {
+            DateTime written = SafeWriteTime(file);
+            if (_imported.TryGetValue(file, out KeyValuePair<DateTime, ImageSource> known) && known.Key == written)
+                return known.Value;
+            ImageSource icon = null;
+            try
+            {
+                icon = FromIco(File.ReadAllBytes(file));
+            }
+            catch (Exception ex) when (IsFileError(ex))
+            {
+                Log.Detailed($"Imported icon {file} cannot be read: {ex.Message}");
+            }
+            _imported[file] = new KeyValuePair<DateTime, ImageSource>(written, icon);
+            return icon;
+        }
+
+        // Its largest image, read from memory so that the file stays free to be replaced or removed.
+        public static ImageSource FromIco(byte[] ico)
+        {
+            try
+            {
+                using (var stream = new MemoryStream(ico))
+                {
+                    var decoder = new IconBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                    BitmapFrame largest = decoder.Frames.OrderByDescending(f => f.PixelWidth * f.PixelHeight).FirstOrDefault();
+                    largest?.Freeze();
+                    return largest;
+                }
+            }
+            catch (Exception ex) when (IsImageError(ex))
+            {
+                return null;
+            }
+        }
+
+        // The decoders of Windows report a file they cannot read in several ways.
+        internal static bool IsImageError(Exception ex) =>
+            IsFileError(ex) || ex is FormatException || ex is InvalidOperationException || ex is COMException || ex is OverflowException;
+
+        // The program's own icon as Explorer shows it, at the largest size Windows has for it, as a PNG.
+        internal static byte[] Extract(string exePath)
         {
             int index = SystemIconIndex(exePath);
             if (index < 0)

@@ -212,10 +212,28 @@ namespace AutoTrigger
             ExitApp();
         }
 
+        // Cleaned before the window opens, so that an icon imported for a new application is never taken for unused.
+        private CustomIconStore ImportedIcons(string dataDir)
+        {
+            var store = new CustomIconStore(Path.Combine(dataDir, CustomIconStore.FolderName));
+            try
+            {
+                int removed = store.RemoveUnused(_settings.Applications.Where(a => a.CustomIcon).Select(a => a.Id));
+                if (removed > 0)
+                    Log.Detailed($"Imported icons: {CountText.Of(removed, "unused file")} removed");
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Log.Detailed("Unused imported icons cannot be removed: " + ex.Message);
+            }
+            return store;
+        }
+
         private void CreateServices(string dataDir)
         {
             _controller = new SettingsController(_settings, _store, Dispatcher);
-            _icons = new AppIcons(Path.Combine(dataDir, "icons"), Dispatcher, _settings.Applications.Select(a => a.Path));
+            _icons = new AppIcons(Path.Combine(dataDir, "icons"), Dispatcher, _settings.Applications.Select(a => a.Path),
+                ImportedIcons(dataDir));
             _processes = new WindowsProcessSystem();
             var displayHardware = new WindowsDisplayHardware();
             _audio = new WindowsAudioHardware();
@@ -497,7 +515,7 @@ namespace AutoTrigger
 
         private void CreateDesktopShortcut(AppEntry app)
         {
-            DesktopShortcut shortcut = DesktopShortcut.For(app, _exePath);
+            DesktopShortcut shortcut = DesktopShortcut.For(app, _exePath, _icons.Custom.Existing(app));
             var writer = new Thread(() =>
             {
                 Func<string> reason;

@@ -388,7 +388,7 @@ namespace AutoTrigger.Ui
             + FilterName(Texts.FileTypeAllFiles) + " (*.*)|*.*";
 
         // A '|' in a translated name would split the filter and make the file dialog refuse it.
-        private static string FilterName(string name) => name.Replace("|", string.Empty);
+        internal static string FilterName(string name) => name.Replace("|", string.Empty);
 
         internal static string BrowseForFile(string current, bool exeOnly)
         {

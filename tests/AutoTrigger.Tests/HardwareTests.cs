@@ -382,6 +382,49 @@ namespace AutoTrigger.Tests
             Check(AudioDevice.GuidOf(tv.Id) == new Guid("22222222-2222-2222-2222-222222222222"), "GUID of an endpoint id");
         }
 
+        private static void AudioDeviceFoundByName()
+        {
+            const string gone = "{0.0.0.00000000}.{55555555-5555-5555-5555-555555555555}";
+            var hw = new FakeAudioHardware();
+            var spdif = new AudioDevice { Id = "{0.0.0.00000000}.{66666666-6666-6666-6666-666666666666}", Name = "SPDIF Interface (Realtek USB2.0 Audio)", Playback = true };
+            var tv = new AudioDevice { Id = "{0.0.0.00000000}.{77777777-7777-7777-7777-777777777777}", Name = "TV", Playback = true };
+            var spdifInput = new AudioDevice { Id = "{0.0.1.00000000}.{88888888-8888-8888-8888-888888888888}", Name = "Line In", Playback = false };
+            hw.Devices.AddRange(new[] { spdif, tv, spdifInput });
+            hw.DefaultPlayback = tv.Id;
+            var runner = new WindowsSettingsRunner(hw, null, null);
+
+            ActionOutcome r = runner.Run(new WindowsSettingsAction { PlaybackDevice = gone, PlaybackName = " spdif interface (Realtek USB2.0 Audio) " });
+            Eq(ActionResult.Succeeded, r.Result, "new id after a driver update: result");
+            Eq(spdif.Id, hw.DefaultPlayback, "new id after a driver update: the device of that name is the default");
+            Check(r.Message.Contains("found by name"), "new id after a driver update: said in the log: " + r.Message);
+
+            hw.Calls.Clear();
+            r = runner.Run(new WindowsSettingsAction { PlaybackDevice = gone, PlaybackName = "SPDIF Interface (Realtek USB2.0 Audio)" });
+            Eq(0, hw.Calls.Count, "found by name and already the default: nothing sent");
+            Check(r.Message.Contains("already the default") && r.Message.Contains("found by name"), "already the default: " + r.Message);
+
+            r = runner.Run(new WindowsSettingsAction { PlaybackDevice = tv.Id, PlaybackName = "SPDIF Interface (Realtek USB2.0 Audio)" });
+            Eq(tv.Id, hw.DefaultPlayback, "saved id first, whatever the saved name");
+            Check(!r.Message.Contains("found by name"), "saved id: not said to be found by name: " + r.Message);
+
+            hw.Calls.Clear();
+            r = runner.Run(new WindowsSettingsAction { RecordDevice = gone, RecordName = "SPDIF Interface (Realtek USB2.0 Audio)" });
+            Eq(ActionResult.Failed, r.Result, "a playback device never stands in for an input device");
+            Eq(0, hw.Calls.Count, "other direction: nothing sent");
+
+            r = runner.Run(new WindowsSettingsAction { PlaybackDevice = gone });
+            Eq(ActionResult.Failed, r.Result, "no saved name: fails as before");
+
+            var twin = new AudioDevice { Id = "{0.0.0.00000000}.{99999999-9999-9999-9999-999999999999}", Name = "SPDIF Interface (Realtek USB2.0 Audio)", Playback = true };
+            hw.Devices.Add(twin);
+            hw.Calls.Clear();
+            r = runner.Run(new WindowsSettingsAction { PlaybackDevice = gone, PlaybackName = "SPDIF Interface (Realtek USB2.0 Audio)" });
+            Eq(ActionResult.Failed, r.Result, "two devices of that name: fails");
+            Eq(0, hw.Calls.Count, "two devices of that name: nothing sent");
+            Check(ReferenceEquals(twin, AudioDevice.Find(hw.Devices, twin.Id, "SPDIF Interface (Realtek USB2.0 Audio)")), "two devices of that name: the saved id still picks its own");
+            Check(AudioDevice.Find(hw.Devices, string.Empty, "TV") == null, "nothing saved: nothing found");
+        }
+
         private static void PowerPlanActions()
         {
             var balanced = new PowerPlan { Id = new Guid("381b4222-f694-41f0-9685-ff5bb260df2e"), Name = "Balanced" };

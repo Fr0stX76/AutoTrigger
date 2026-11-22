@@ -155,6 +155,9 @@ namespace AutoTrigger.Core.Model
 
         public Guid LaunchProfileId { get; set; }
 
+        // An icon was imported for it (CustomIconStore): the lists and the desktop shortcut show that one.
+        public bool CustomIcon { get; set; }
+
         public string FileName
         {
             get

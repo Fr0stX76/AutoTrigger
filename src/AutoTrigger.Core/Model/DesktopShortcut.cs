@@ -27,7 +27,7 @@ namespace AutoTrigger.Core.Model
 
         public static string LaunchArguments(Guid appId) => "/launch " + appId.ToString("D", CultureInfo.InvariantCulture);
 
-        public static DesktopShortcut For(AppEntry app, string autoTriggerPath)
+        public static DesktopShortcut For(AppEntry app, string autoTriggerPath, string importedIcon = null)
         {
             string program = ActionExecutor.ExpandPath(app.Path);
             bool direct = app.Launch == LaunchKind.Program;
@@ -38,7 +38,7 @@ namespace AutoTrigger.Core.Model
                 Target = target,
                 Arguments = direct ? string.Empty : LaunchArguments(app.Id),
                 WorkingDirectory = ActionExecutor.ProgramFolder(target) ?? string.Empty,
-                IconPath = program,
+                IconPath = string.IsNullOrEmpty(importedIcon) ? program : importedIcon,
             };
         }
 

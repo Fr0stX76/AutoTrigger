@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using AutoTrigger.Core.Displays;
 using AutoTrigger.Core.Model;
 
@@ -49,6 +50,25 @@ namespace AutoTrigger.Core.Engine
                 return false;
             Guid g = GuidOf(stored);
             return g != Guid.Empty ? g == Guid : string.Equals(stored.Trim(), Id, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // A driver update or another USB port gives the same device a new id, so the saved name stands in for a
+        // saved id that is gone; only when one connected device has that name, since two alike can't be told apart.
+        // The engine and the action window both use it, so that they never disagree.
+        public static AudioDevice Find(IEnumerable<AudioDevice> connected, string stored, string storedName)
+        {
+            if (string.IsNullOrWhiteSpace(stored))
+                return null;
+            List<AudioDevice> devices = connected.ToList();
+            AudioDevice saved = devices.FirstOrDefault(d => d.Matches(stored));
+            string name = (storedName ?? string.Empty).Trim();
+            if (saved != null || name.Length == 0)
+                return saved;
+            List<AudioDevice> named = devices
+                .Where(d => string.Equals((d.Name ?? string.Empty).Trim(), name, StringComparison.OrdinalIgnoreCase))
+                .Take(2)
+                .ToList();
+            return named.Count == 1 ? named[0] : null;
         }
     }
 

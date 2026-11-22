@@ -90,6 +90,7 @@ namespace AutoTrigger.Core.Model
                     Enabled = Bool(app, "enabled", true),
                     Launch = ParseLaunch(Str(app, "launch", "program")),
                     LaunchProfileId = GuidOf(app, "launchProfileId"),
+                    CustomIcon = Bool(app, "customIcon", false),
                 });
             }
         }
@@ -238,7 +239,8 @@ namespace AutoTrigger.Core.Model
                     .Set("profileId", GuidValue(app.ProfileId))
                     .Set("enabled", app.Enabled)
                     .Set("launch", LaunchToText(app.Launch))
-                    .Set("launchProfileId", GuidValue(app.Launch == LaunchKind.Profile ? app.LaunchProfileId : Guid.Empty)));
+                    .Set("launchProfileId", GuidValue(app.Launch == LaunchKind.Profile ? app.LaunchProfileId : Guid.Empty))
+                    .Set("customIcon", app.CustomIcon));
             }
             return list;
         }

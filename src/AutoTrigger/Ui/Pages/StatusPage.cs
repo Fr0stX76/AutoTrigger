@@ -40,6 +40,8 @@ namespace AutoTrigger.Ui
         private Guid _profileId;
         private Dictionary<Guid, AppEntry> _apps = new Dictionary<Guid, AppEntry>();
         private Guid _shownApp = Guid.NewGuid();
+        private string _shownName;
+        private string _shownIcon;
         private string _shownList;
 
         public StatusPage(AppIcons icons)
@@ -201,8 +203,13 @@ namespace AutoTrigger.Ui
             var lines = applications.Where(a => a.Launch != LaunchKind.None)
                 .Select(a => new KeyValuePair<AppEntry, string>(a, LaunchCaption(a, profiles)))
                 .ToList();
+            // An icon imported for the application in front shows at once, not at its next start.
+            if (_apps.TryGetValue(_shownApp, out AppEntry current) && _icons.Custom.Existing(current) != _shownIcon)
+                ShowCurrent(current, _shownName);
+            // The imported icon is part of it: a new one has a new file name.
             string shown = applications.Count + "\n" + string.Join("\n",
-                lines.Select(l => l.Key.Id + "|" + l.Key.Name + "|" + l.Key.Path + "|" + l.Key.Enabled + "|" + l.Value));
+                lines.Select(l => l.Key.Id + "|" + l.Key.Name + "|" + l.Key.Path + "|" + l.Key.Enabled + "|" + l.Value
+                    + "|" + _icons.Custom.Existing(l.Key)));
             if (shown == _shownList)
                 return;
             _shownList = shown;
@@ -324,6 +331,8 @@ namespace AutoTrigger.Ui
 
         private void ShowCurrent(AppEntry app, string name)
         {
+            _shownName = name;
+            _shownIcon = _icons.Custom.Existing(app);
             if (app == null && string.IsNullOrEmpty(name))
             {
                 _currentIcon.Visibility = Visibility.Collapsed;
@@ -340,14 +349,14 @@ namespace AutoTrigger.Ui
             _currentName.SetResourceReference(TextBlock.ForegroundProperty, Res.TextPrimary);
             _currentIcon.ShowInitials(name ?? app?.Name);
             if (app != null)
-                _icons.Get(app.Path, image => { if (_shownApp == app.Id) _currentIcon.ShowImage(image); });
+                _icons.Get(app, image => { if (_shownApp == app.Id) _currentIcon.ShowImage(image); });
         }
 
         private Border AppRow(AppEntry app, string caption)
         {
             var icon = new AppIconBox(40, 8);
             icon.ShowInitials(app.Name);
-            _icons.Get(app.Path, icon.ShowImage);
+            _icons.Get(app, icon.ShowImage);
 
             var name = new StackPanel { Margin = new Thickness(Spacing.Medium, 0, Spacing.Medium, 0), VerticalAlignment = VerticalAlignment.Center };
             name.Children.Add(Res.Text(DisplayName(app)));

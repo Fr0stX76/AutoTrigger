@@ -70,6 +70,8 @@ namespace AutoTrigger.Ui
             string stored = playback ? _playbackStored : _recordingStored;
             string storedName = playback ? _playbackName : _recordingName;
             string unchanged = playback ? Texts.AudioOutputUnchanged : Texts.AudioInputUnchanged;
+            // The engine's own rule: a device found by its name is selected, so that saving keeps its new id.
+            AudioDevice found = AudioDevice.Find(devices, stored, storedName);
             var choices = new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>(string.Empty, unchanged) };
             string selected = string.Empty;
             foreach (AudioDevice device in devices)
@@ -77,7 +79,7 @@ namespace AutoTrigger.Ui
                 bool isDefault = string.Equals(device.Id, defaultId, StringComparison.OrdinalIgnoreCase);
                 string label = isDefault ? device.Name + " · " + Texts.DefaultShort : device.Name;
                 choices.Add(new KeyValuePair<string, string>(device.Id, label));
-                if (device.Matches(stored))
+                if (ReferenceEquals(device, found))
                 {
                     selected = device.Id;
                     if (playback)

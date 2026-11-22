@@ -93,4 +93,6 @@ Delete the file when your correction is part of a release.
 | `KeyboardShortcut` and `TypeHotkey` | Two different things: the shortcut that runs a profile, and the action that presses keys in another app. They need two different words. |
 | `LoopIgnored`, `MissingIgnored`, `MissingDisplayIgnored` | On an action card: the action is ignored. |
 | `ImportNotJson`, `ImportNotAutoActions` | The `{reason}` of `ImportFailed`, after a colon. |
+| `ImportIcon`, `RemoveIcon`, `FileTypeIcons` | Application window, buttons under `Icon`: `ImportIcon` opens a file dialog whose file type is named `FileTypeIcons` (pictures and programs); `RemoveIcon` goes back to the program's own icon. |
+| `IconShortcutHint`, `IconUnusable`, `IconSaveFailed` | Application window, under the icon buttons: the hint shows once the icon is changed; the other two when the chosen file or the saving fails. |
 | `Paused` | Tooltip of the tray icon while monitoring is paused. `{name}` is AutoTrigger and its version, such as AutoTrigger v1.7.0. |
